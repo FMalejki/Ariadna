@@ -30,7 +30,7 @@ function Thread() {
         <text x="20" y="190" textAnchor="start">wzmianka</text>
         <text x="170" y="38" textAnchor="middle">adres</text>
         <text x="330" y="160" textAnchor="middle">transakcja</text>
-        <text x="540" y="82" textAnchor="end">trop, niezweryfikowany</text>
+        <text x="540" y="82" textAnchor="end">trop</text>
       </g>
     </svg>
   );
