@@ -37,7 +37,7 @@ export function Repeatability({ r }: { r: { distinct_urls: number; pages_with_ad
       ) : (
         <>no page places the name/login next to this address ({r.pages_with_address} page{r.pages_with_address === 1 ? "" : "s"} show the address)</>
       )}
-      {" · "}<i>not ownership; different URLs may copy the same content</i>
+      {" "}<i>This is not ownership. Different URLs may copy the same content.</i>
     </span>
   );
 }
@@ -55,7 +55,7 @@ export function Page({ title, sub, children }: { title: string; sub?: string; ch
   return (
     <div>
       <h1>{title}</h1>
-      {sub && <div className="sub">{sub}</div>}
+      {sub && <p className="sub">{sub}</p>}
       {children}
     </div>
   );
@@ -63,10 +63,10 @@ export function Page({ title, sub, children }: { title: string; sub?: string; ch
 
 export function Drawer({ onClose, title, children }: { onClose: () => void; title: string; children: ReactNode }) {
   return (
-    <aside className="drawer" role="dialog" aria-label={title}>
+    <aside className="drawer" role="dialog" aria-label={title} onKeyDown={(e) => { if (e.key === "Escape") onClose(); }}>
       <div className="row">
         <h2 className="grow">{title}</h2>
-        <button className="ghost sm" onClick={onClose}>Close</button>
+        <button type="button" className="ghost sm" onClick={onClose}>Close</button>
       </div>
       {children}
     </aside>
@@ -98,8 +98,8 @@ export function RelationshipDrawer({ id, onClose }: { id: string; onClose: () =>
             <Badge value={r.review_status} />
           </div>
           <p>
-            <b>{r.source_entity?.display_name}</b> <span className="muted">({r.source_entity?.canonical_identifier})</span>
-            <br />→ <b>{r.target_entity?.display_name}</b> <span className="muted">({r.target_entity?.canonical_identifier})</span>
+            <b>{r.source_entity?.display_name}</b> <span className="muted" translate="no">({r.source_entity?.canonical_identifier})</span>
+            <br />linked to <b>{r.target_entity?.display_name}</b> <span className="muted" translate="no">({r.target_entity?.canonical_identifier})</span>
           </p>
           {r.status === "proposed" && (
             <div className="warnbox">Proposed only: a single unverified lead. Not a confirmed fact.</div>
@@ -107,7 +107,7 @@ export function RelationshipDrawer({ id, onClose }: { id: string; onClose: () =>
           {r.has_contradiction && <div className="warnbox">Sources disagree about this relationship.</div>}
           {r.is_stale && <div className="warnbox">All supporting evidence is from an older version of its source.</div>}
           <div className="muted">
-            First observed {when(r.first_observed_at)} · last {when(r.last_observed_at)} · method {r.resolution_method ?? "—"}
+            First observed {when(r.first_observed_at)}, last observed {when(r.last_observed_at)}, method {r.resolution_method ?? "—"}
           </div>
           <h3>Evidence ({r.evidence.length})</h3>
           {r.evidence.map((e: any) => (
@@ -120,14 +120,14 @@ export function RelationshipDrawer({ id, onClose }: { id: string; onClose: () =>
               </div>
               <div>{e.explanation}</div>
               <div className="muted">
-                {e.observation.source ?? "source"} · seq {e.observation.seq} · observed {when(e.observation.observed_at)} ·{" "}
-                provider {e.provider ? `${e.provider.name}@${e.provider.version}` : "—"} · reliability {e.source_reliability}
+                Source {e.observation.source ?? "unknown"}, observation {e.observation.seq}, observed {when(e.observation.observed_at)}.{" "}
+                Provider {e.provider ? `${e.provider.name}@${e.provider.version}` : "—"}, reliability {e.source_reliability}.
               </div>
               {e.observation.source_url && (
-                <div className="mono">
+                <div className="mono" translate="no">
                   {short(e.observation.source_url, 70)}{" "}
                   {safeHttpUrl(e.observation.source_url) && (
-                    <a href={safeHttpUrl(e.observation.source_url)!} target="_blank" rel="noopener noreferrer">Open source page ↗</a>
+                    <a href={safeHttpUrl(e.observation.source_url)!} target="_blank" rel="noopener noreferrer">Open source page</a>
                   )}
                 </div>
               )}

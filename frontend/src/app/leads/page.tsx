@@ -30,7 +30,7 @@ function RunLine({ r }: { r: any }) {
   return (
     <div className="row" style={{ margin: "6px 0" }}>
       <Badge value={r.status} />
-      <span className="muted">{r.provider} · run {short(r.tool_run_id, 8)}</span>
+      <span className="muted">{r.provider}, run {short(r.tool_run_id, 8)}</span>
       {r.error && <span className={r.unavailable ? "muted" : "err"}>{r.error}</span>}
     </div>
   );
@@ -128,7 +128,7 @@ export default function Leads() {
 
   return (
     <Page
-      title="Lead search → wallet → on-chain"
+      title="Lead search: from a name to a wallet to on-chain facts"
       sub="Find where a public wallet address is mentioned next to a person or topic, then check it on-chain. Every step is your decision. A mention is not ownership."
     >
       <div className="warnbox">
@@ -137,14 +137,14 @@ export default function Leads() {
       </div>
       {cfg.data && (
         <div className="notice">
-          Search: Tavily {cfg.data.tavily_configured ? "configured (official API)" : "NOT configured (set OSINT_TAVILY_API_KEY)"} · ddgs is{" "}
+          Search: Tavily {cfg.data.tavily_configured ? "configured (official API)" : "NOT configured (set OSINT_TAVILY_API_KEY)"}. ddgs is{" "}
           <b>unofficial / terms-of-service gray</b> keyless scraping, used only as an explicit choice or a recorded fallback. On-chain: Bitcoin{" "}
-          {cfg.data.btc_esplora_configured ? "configured" : "not configured"} · EVM history explorers: {cfg.data.evm_explorer_networks.join(", ") || "none"}.
+          {cfg.data.btc_esplora_configured ? "configured" : "not configured"}. EVM history explorers: {cfg.data.evm_explorer_networks.join(", ") || "none"}.
         </div>
       )}
       {!canAct && <div className="muted">Viewer role can read results but cannot run steps.</div>}
 
-      <Step n={1} title="Person or topic → proposed queries" hint="Suggestions are deterministic (no AI) and nothing is sent until you approve a query in step 2. Edit freely.">
+      <Step n={1} title="Person or topic: proposed queries" hint="Suggestions are deterministic (no AI) and nothing is sent until you approve a query in step 2. Edit freely.">
         <div className="row">
           <input className="grow" placeholder='Person or topic, e.g. Jan Kowalski' value={subject} onChange={(e) => setSubject(e.target.value)} />
           <input placeholder="extra terms, comma-separated" value={extra} onChange={(e) => setExtra(e.target.value)} />
@@ -156,7 +156,7 @@ export default function Leads() {
         <ErrorLine error={propose.error || begin.error} />
         {inv && state.data && (
           <div className="notice">
-            Session <code>{short(inv, 8)}</code>: {state.data.investigation.name} · <Link href={`/investigations?id=${inv}`}>investigation</Link>
+            Session <code>{short(inv, 8)}</code>: {state.data.investigation.name}. <Link href={`/investigations?id=${inv}`}>investigation</Link>
           </div>
         )}
         {!inv && queries.length > 0 && <div className="warnbox">Start a session to run searches (it groups your steps and audit trail).</div>}
@@ -231,7 +231,7 @@ export default function Leads() {
         <ErrorLine error={fetchPage.error} />
       </Step>
 
-      <Step n={3} title="Fetched page → address candidates" hint="Deterministic extraction of Solana, EVM and Bitcoin addresses with short context. robots.txt is respected; X, Telegram, Instagram, Facebook, TikTok and LinkedIn are never fetched.">
+      <Step n={3} title="Fetched page: address candidates" hint="Deterministic extraction of Solana, EVM and Bitcoin addresses with short context. robots.txt is respected; X, Telegram, Instagram, Facebook, TikTok and LinkedIn are never fetched.">
         {!page ? <Empty>No page fetched yet.</Empty> : (
           <>
             <RunLine r={page} />
@@ -241,9 +241,9 @@ export default function Leads() {
                   <b>{page.page.title ?? "(no title)"}</b> <span className="mono muted">{page.page.final_url}</span>
                 </div>
                 <div className="muted">
-                  {page.page.bytes_read} bytes{page.page.truncated ? " (truncated at the size limit; later content was not read)" : ""} · page body is not stored
+                  {page.page.bytes_read} bytes{page.page.truncated ? " (truncated at the size limit; later content was not read)" : ""}. The page body is not stored.
                 </div>
-                {page.page.redirects?.length > 0 && <div className="muted">redirects: {page.page.redirects.join(" → ")}</div>}
+                {page.page.redirects?.length > 0 && <div className="muted">redirects: {page.page.redirects.join(", then ")}</div>}
                 {page.page.address_candidates.length === 0 && <Empty>No blockchain address found on this page.</Empty>}
                 {page.page.address_candidates.map((c: any) => {
                   const key = `${c.network}:${c.address}`;
@@ -280,7 +280,7 @@ export default function Leads() {
         )}
       </Step>
 
-      <Step n={4} title="Tracked wallets → on-chain lookup" hint="Balance, recent transactions and counterparties from your configured node/explorer. Unavailable sources are reported, never replaced by scraping.">
+      <Step n={4} title="Tracked wallets: on-chain lookup" hint="Balance, recent transactions and counterparties from your configured node/explorer. Unavailable sources are reported, never replaced by scraping.">
         {wallets.length === 0 ? <Empty>No tracked wallets yet. Track an address in step 3.</Empty> : wallets.map((w) => {
           const o = onchain[w.entity_id];
           return (
@@ -332,9 +332,9 @@ export default function Leads() {
                       {n.error && <div className="err">{n.error}</div>}
                       {n.history_error && <div className="muted">history: {n.history_error}</div>}
                       {txs.length > 0 && (
-                        <div style={{ maxHeight: 280, overflowY: "auto", border: "1px solid var(--border, #d0d7de)", borderRadius: 6 }}>
+                        <div style={{ maxHeight: 280, overflowY: "auto", border: "1px solid var(--border)", borderRadius: 6 }}>
                           <table>
-                            <thead style={{ position: "sticky", top: 0, background: "var(--panel, #fff)" }}><tr><th>Tx</th><th>Time</th><th>Direction / amount</th></tr></thead>
+                            <thead style={{ position: "sticky", top: 0, background: "var(--panel)" }}><tr><th>Tx</th><th>Time</th><th>Direction / amount</th></tr></thead>
                             <tbody>
                               {txs.map((t: any) => (
                                 <tr key={t.hash}>
@@ -368,9 +368,9 @@ export default function Leads() {
                             </button>
                             <button className="ghost sm" disabled={mine.length === 0} onClick={() => { const next = { ...picked }; mine.forEach((k) => delete next[k]); setPicked(next); }}>Clear</button>
                             <span className={mine.length >= MAX_EXPAND ? "err" : "muted"}>{mine.length} / {MAX_EXPAND} selected</span>
-                            <span className="muted">· contracts ({rows.length - selectable.length}) are not selected by "Select all"</span>
+                            <span className="muted">Contracts ({rows.length - selectable.length}) are not selected by "Select all"</span>
                           </div>
-                          <div style={{ maxHeight: 320, overflowY: "auto", border: "1px solid var(--border, #d0d7de)", borderRadius: 6 }}>
+                          <div style={{ maxHeight: 320, overflowY: "auto", border: "1px solid var(--border)", borderRadius: 6 }}>
                             <table>
                               <tbody>
                                 {rows.map((c: any) => {
@@ -383,7 +383,7 @@ export default function Leads() {
                                           onChange={(e) => setPicked((p) => { const next = { ...p }; if (e.target.checked) next[k] = true; else delete next[k]; return next; })} />
                                       </td>
                                       <td className="mono">{c.address}</td>
-                                      <td>{c.direction.replace(/_/g, " ")} · {c.tx_count} tx {c.is_contract ? <Badge value="contract" /> : null}</td>
+                                      <td>{c.direction.replace(/_/g, " ")}, {c.tx_count} tx {c.is_contract ? <Badge value="contract" /> : null}</td>
                                     </tr>
                                   );
                                 })}

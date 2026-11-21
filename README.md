@@ -1,4 +1,4 @@
-# OSINT Memory
+# Ariadna
 
 A persistent, evidence-first OSINT knowledge graph for the crypto-trading ecosystem. It sits above existing tools and remembers what was found, where it came from, and how reliable it is. A second investigation reuses the first one's knowledge.
 

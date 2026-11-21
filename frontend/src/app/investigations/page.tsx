@@ -39,7 +39,7 @@ function Detail({ id }: { id: string }) {
   return (
     <div>
       <div className="row"><h2 className="grow">{i.name}</h2><Badge value={i.status} /><button className="ghost sm" onClick={exportJson} disabled={!can("analyst")}>Export JSON</button></div>
-      <div className="muted">Created {when(i.created_at)} by {i.created_by} · scope depth {i.scope?.max_depth}</div>
+      <div className="muted">Created {when(i.created_at)} by {i.created_by}, scope depth {i.scope?.max_depth}</div>
       <h3>Knowledge reuse</h3>
       <div className="grid g4">
         <div className="card stat">{kr.reused_observations}<small>observations reused</small></div>

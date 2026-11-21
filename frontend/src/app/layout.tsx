@@ -1,13 +1,15 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 import "./globals.css";
 import Providers from "./providers";
 import Shell from "@/components/Shell";
 
 export const metadata: Metadata = {
-  title: "OSINT Memory — evidence-first intelligence workspace",
-  description: "Persistent OSINT knowledge graph with provenance",
+  title: { default: "Ariadna", template: "%s | Ariadna" },
+  description: "Ariadna: a persistent OSINT knowledge graph where every link shows its evidence.",
 };
+
+export const viewport: Viewport = { themeColor: "#e8ecee", colorScheme: "light" };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (

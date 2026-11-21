@@ -44,7 +44,7 @@ export default function Evidence() {
           {meta.data && (
             <>
               <div className="mono">sha256 {meta.data.content_hash}</div>
-              <div className="muted">{meta.data.content_type} · {meta.data.size} bytes · captured {when(meta.data.captured_at)}</div>
+              <div className="muted">{meta.data.content_type}, {meta.data.size} bytes, captured {when(meta.data.captured_at)}</div>
               <div className="notice">Contents are untrusted external material. They are served as a download only.</div>
               <button disabled={!can("analyst")} onClick={() => downloadArtifact(art).catch(setErr)}>Download</button>
               {!can("analyst") && <div className="muted">Analyst role required to download.</div>}

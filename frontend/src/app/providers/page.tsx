@@ -22,11 +22,11 @@ export default function Providers() {
             <div key={p.name} className="card">
               <div className="row"><h2 className="grow">{p.name} <span className="muted">v{p.version}</span></h2><Badge value={p.implementation_status} /><Badge value={p.enabled ? "active" : "skipped"} title={p.enabled ? "enabled" : "disabled"} /></div>
               <div>{p.description}</div>
-              <div className="muted">kind {p.kind} · category {p.category} · evidence class {p.evidence_class}</div>
+              <div className="muted">kind {p.kind}, category {p.category}, evidence class {p.evidence_class}</div>
               <div className="muted">capabilities: {p.capabilities.join(", ") || "—"}</div>
               {placeholder && <div className="warnbox">Placeholder: no integration code exists. It is never routed and cannot be enabled.</div>}
-              <div className="muted">Health: {p.last_health ? <Badge value={p.last_health.status ?? String(p.last_health)} /> : "never checked"} {p.last_health_at && `· ${when(p.last_health_at)}`}</div>
-              <div className="muted">Rate limit {p.rate_limit_per_minute ?? "—"}/min · daily quota {p.daily_quota ?? "—"}</div>
+              <div className="muted">Health: {p.last_health ? <Badge value={p.last_health.status ?? String(p.last_health)} /> : "never checked"} {p.last_health_at && `(${when(p.last_health_at)})`}</div>
+              <div className="muted">Rate limit {p.rate_limit_per_minute ?? "—"}/min, daily quota {p.daily_quota ?? "—"}</div>
               <div className="row" style={{ marginTop: 6 }}>
                 <button className="ghost sm" disabled={!can("analyst") || placeholder} onClick={() => health.mutate(p.name)}>Check health</button>
                 <button className="ghost sm" disabled={!can("admin") || placeholder} onClick={() => patch.mutate({ name: p.name, body: { enabled: !p.enabled } })}>{p.enabled ? "Disable" : "Enable"}</button>

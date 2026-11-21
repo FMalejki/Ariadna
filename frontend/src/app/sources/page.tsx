@@ -16,10 +16,10 @@ function SourceDetail({ id, onClose }: { id: string; onClose: () => void }) {
           <div className="row"><Badge value={s.collection_status} /><Badge value={s.source_type} /><span className="muted">reliability {s.reliability}</span></div>
           <p className="mono">{s.canonical_url ?? s.canonical_key}</p>
           {s.collection_restrictions && <div className="warnbox">{s.collection_restrictions}</div>}
-          <div className="muted">Discovered {when(s.first_discovered_at)} · last observed {when(s.last_observed_at)} · via {s.provider ?? "—"} ({s.access_method})</div>
+          <div className="muted">Discovered {when(s.first_discovered_at)}, last observed {when(s.last_observed_at)}, via {s.provider ?? "—"} ({s.access_method})</div>
           <h3>Observation history ({s.observations.length})</h3>
           {s.observations.map((o: any) => (
-            <div key={o.id} className="ev"><b>{o.observation_type}</b> seq {o.seq} · {when(o.observed_at)}<pre className="json">{JSON.stringify(o.payload, null, 2).slice(0, 800)}</pre></div>
+            <div key={o.id} className="ev"><b>{o.observation_type}</b> seq {o.seq}, {when(o.observed_at)}<pre className="json">{JSON.stringify(o.payload, null, 2).slice(0, 800)}</pre></div>
           ))}
         </>
       )}

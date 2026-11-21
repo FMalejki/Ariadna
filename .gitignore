@@ -45,3 +45,4 @@ docker-compose.override.yml
 .bob/
 PROMPT.md
 lead-automation-plan.md
+skills-lock.json

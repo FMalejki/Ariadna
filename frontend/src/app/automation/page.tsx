@@ -102,7 +102,7 @@ export default function Automation() {
             return (
               <label key={s.id} style={{ display: "block", margin: "2px 0" }} title={lacking ? `requires stage ${s.requires}` : undefined}>
                 <input type="checkbox" checked={stages.includes(s.id)} onChange={() => setStages(toggleStage(stages, s.id, stageCfg))} />{" "}
-                <b>{s.id}</b> · {s.label}
+                <b>{s.id}</b>: {s.label}
                 {s.requires && <span className="muted"> (requires {s.requires})</span>}
               </label>
             );
@@ -138,7 +138,7 @@ export default function Automation() {
           <div className="row">
             <h2 style={{ margin: 0 }}>Run {short(run.id, 8)}</h2>
             <Badge value={run.status} />
-            <span className="muted">stages {run.stages?.join("")} · {run.subject ?? "—"}{run.login ? ` · login ${run.login}` : ""}</span>
+            <span className="muted">stages {run.stages?.join("")}, {run.subject ?? "—"}{run.login ? `, login ${run.login}` : ""}</span>
             <span className="grow" />
             <Link href={`/leads`} onClick={() => window.localStorage.setItem("osint.leads.investigation", run.investigation_id)}>Lead Search</Link>
             <Link href={`/investigations?id=${run.investigation_id}`}>investigation</Link>

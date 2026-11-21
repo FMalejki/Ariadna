@@ -8,8 +8,8 @@ import { Badge, ErrorLine, Page, RelationshipDrawer, short } from "@/components/
 import { explorerLinks, safeHttpUrl } from "@/lib/links";
 
 const TYPE_COLOR: Record<string, string> = {
-  social_account: "#4c8dff", public_profile: "#60a5fa", post: "#7aa7ff", channel: "#38bdf8", website: "#a78bfa", domain: "#c4b5fd",
-  wallet: "#f5b84a", token: "#f59e0b", contract: "#fb923c", transaction: "#94a3b8", organization: "#34d399", document: "#cbd5e1", source: "#475569",
+  social_account: "#2b3a9e", public_profile: "#4f6bd6", post: "#7e92e0", channel: "#0f6e7d", website: "#7a4fb0", domain: "#a98fd0",
+  wallet: "#94590a", token: "#b87410", contract: "#c4692a", transaction: "#7d8a96", organization: "#2f8f6b", document: "#aab4bd", source: "#5b6773",
 };
 const STATUSES = ["proposed", "supported", "corroborated", "verified", "contradicted", "historical", "rejected"];
 
@@ -31,11 +31,11 @@ function NodeLinks({ node }: { node: GraphNode }) {
   if (chain.length === 0 && !page) return null;
   return (
     <div>
-      {page && <div><a href={page} target="_blank" rel="noopener noreferrer">Open page ↗</a> <span className="muted">{short(page, 50)}</span></div>}
+      {page && <div><a href={page} target="_blank" rel="noopener noreferrer">Open page</a> <span className="muted">{short(page, 50)}</span></div>}
       {chain.length > 0 && (
         <div className="row">
           <span className="muted">View on explorer:</span>
-          {chain.map((l) => <a key={l.url} href={l.url} target="_blank" rel="noopener noreferrer">{l.label} ↗</a>)}
+          {chain.map((l) => <a key={l.url} href={l.url} target="_blank" rel="noopener noreferrer">{l.label}</a>)}
         </div>
       )}
       {chain.length > 0 && node.network === "evm" && <div className="muted">Network is not determined for this address, so each known chain is offered.</div>}
@@ -126,20 +126,20 @@ export default function GraphPage() {
         minZoom: 0.2,
         maxZoom: 3,
         style: [
-          { selector: "node", style: { label: "data(label)", color: "#d7dce6", "font-size": 10, "text-valign": "bottom", "text-margin-y": 4, width: 22, height: 22, "background-color": (n: any) => TYPE_COLOR[n.data("entity_type")] ?? "#64748b", "border-width": 1, "border-color": "#0b0e14" } },
-          { selector: "node[?verified]", style: { "border-width": 3, "border-color": "#3ecf8e" } },
-          { selector: "node[resolution_status = 'ambiguous'], node[resolution_status = 'unresolved']", style: { "border-style": "dashed", "border-color": "#f5b84a", "border-width": 2 } },
+          { selector: "node", style: { label: "data(label)", color: "#17212b", "font-size": 10, "text-valign": "bottom", "text-margin-y": 4, width: 22, height: 22, "background-color": (n: any) => TYPE_COLOR[n.data("entity_type")] ?? "#7d8a96", "border-width": 1, "border-color": "#ffffff" } },
+          { selector: "node[?verified]", style: { "border-width": 3, "border-color": "#17724a" } },
+          { selector: "node[resolution_status = 'ambiguous'], node[resolution_status = 'unresolved']", style: { "border-style": "dashed", "border-color": "#94590a", "border-width": 2 } },
           { selector: "node[kind = 'source']", style: { shape: "round-rectangle", width: 18, height: 14 } },
-          { selector: "edge", style: { width: 1.5, "line-color": "#64748b", "target-arrow-color": "#64748b", "target-arrow-shape": "triangle", "curve-style": "bezier", label: "data(relationship_type)", "font-size": 7, color: "#8a94a8", "text-rotation": "autorotate", "text-background-color": "#0a0d13", "text-background-opacity": 0.8 } },
-          { selector: "edge[status = 'proposed']", style: { "line-style": "dashed", "line-color": "#475569", "target-arrow-color": "#475569" } },
-          { selector: "edge[status = 'supported']", style: { "line-color": "#3b82a8", "target-arrow-color": "#3b82a8" } },
-          { selector: "edge[status = 'corroborated']", style: { "line-color": "#38bdf8", "target-arrow-color": "#38bdf8", width: 2.5 } },
-          { selector: "edge[status = 'verified']", style: { "line-color": "#3ecf8e", "target-arrow-color": "#3ecf8e", width: 3 } },
-          { selector: "edge[status = 'contradicted']", style: { "line-color": "#ef5b6b", "target-arrow-color": "#ef5b6b", width: 3 } },
-          { selector: "edge[status = 'historical']", style: { "line-style": "dotted", "line-color": "#f5b84a", "target-arrow-color": "#f5b84a" } },
+          { selector: "edge", style: { width: 1.5, "line-color": "#7d8a96", "target-arrow-color": "#7d8a96", "target-arrow-shape": "triangle", "curve-style": "bezier", label: "data(relationship_type)", "font-size": 7, color: "#566472", "text-rotation": "autorotate", "text-background-color": "#ffffff", "text-background-opacity": 0.85 } },
+          { selector: "edge[status = 'proposed']", style: { "line-style": "dashed", "line-color": "#5b6773", "target-arrow-color": "#5b6773" } },
+          { selector: "edge[status = 'supported']", style: { "line-color": "#3d5f82", "target-arrow-color": "#3d5f82" } },
+          { selector: "edge[status = 'corroborated']", style: { "line-color": "#0f6e7d", "target-arrow-color": "#0f6e7d", width: 2.5 } },
+          { selector: "edge[status = 'verified']", style: { "line-color": "#17724a", "target-arrow-color": "#17724a", width: 3 } },
+          { selector: "edge[status = 'contradicted']", style: { "line-color": "#b3261e", "target-arrow-color": "#b3261e", width: 3 } },
+          { selector: "edge[status = 'historical']", style: { "line-style": "dotted", "line-color": "#94590a", "target-arrow-color": "#94590a" } },
           { selector: "edge[status = 'rejected']", style: { opacity: 0.3, "line-style": "dotted" } },
-          { selector: ":selected", style: { "overlay-color": "#4c8dff", "overlay-opacity": 0.25 } },
-          { selector: ".path", style: { "line-color": "#a78bfa", "target-arrow-color": "#a78bfa", "background-color": "#a78bfa", width: 4 } },
+          { selector: ":selected", style: { "overlay-color": "#2b3a9e", "overlay-opacity": 0.25 } },
+          { selector: ".path", style: { "line-color": "#7a4fb0", "target-arrow-color": "#7a4fb0", "background-color": "#7a4fb0", width: 4 } },
         ],
       });
       cy.on("tap", "node", (ev) => { setEdgeId(null); setSelectedNode(ev.target.data() as GraphNode); });
@@ -183,7 +183,7 @@ export default function GraphPage() {
           {STATUSES.map((s) => <option key={s}>{s}</option>)}
         </select>
         <button className="ghost" onClick={() => setStatuses([])}>All statuses</button>
-        <span className="muted">{counts.n} nodes · {counts.e} edges</span>
+        <span className="muted">{counts.n} nodes, {counts.e} edges</span>
         <button className="ghost" onClick={() => { cyRef.current?.elements().remove(); setCounts({ n: 0, e: 0 }); setTruncated(false); setSelectedNode(null); }}>Clear</button>
       </div>
       {search.data && search.data.length > 0 && (
@@ -202,16 +202,23 @@ export default function GraphPage() {
       <div className="graphwrap" ref={box} />
       {counts.n === 0 && <div className="muted">Search for an entity or open a seed from Discovery to populate the graph.</div>}
       <div className="legend" style={{ marginTop: 8 }}>
-        {Object.entries({ "solid green = verified on-chain": "#3ecf8e", "cyan = corroborated": "#38bdf8", "blue = supported": "#3b82a8", "dashed = proposed (unverified lead)": "#475569", "red = contradicted": "#ef5b6b", "dotted amber = historical": "#f5b84a" }).map(([k, c]) => (
-          <span key={k}><i style={{ background: c }} />{k}</span>
+        {([
+          ["verified on-chain (thick, solid)", "#17724a", ""],
+          ["corroborated (solid)", "#0f6e7d", ""],
+          ["supported (thin, solid)", "#3d5f82", ""],
+          ["proposed, an unverified lead (dashed)", "#5b6773", "dashed"],
+          ["contradicted (thick, solid)", "#b3261e", ""],
+          ["historical (dotted)", "#94590a", "dotted"],
+        ] as const).map(([label, c, style]) => (
+          <span key={label} style={{ color: c }}><i className={style} /><span style={{ color: "var(--muted)" }}>{label}</span></span>
         ))}
-        <span>green node border = on-chain verified · dashed amber border = unresolved/ambiguous</span>
+        <span>Node border: green = on-chain verified, dashed amber = unresolved or ambiguous.</span>
       </div>
       {selectedNode && (
         <aside className="drawer">
-          <div className="row"><h2 className="grow">{selectedNode.label}</h2><button className="ghost sm" onClick={() => setSelectedNode(null)}>Close</button></div>
+          <div className="row"><h2 className="grow">{selectedNode.label}</h2><button type="button" className="ghost sm" onClick={() => setSelectedNode(null)}>Close</button></div>
           <div className="row"><Badge value={selectedNode.entity_type} /><Badge value={selectedNode.verified ? "verified" : "unverified"} /><Badge value={selectedNode.resolution_status} /></div>
-          <p className="mono">{selectedNode.canonical_identifier}</p>
+          <p className="mono" translate="no">{selectedNode.canonical_identifier}</p>
           <NodeLinks node={selectedNode} />
           <div className="row">
             <button disabled={busy} onClick={() => expand(selectedNode.id, selectedNode.entity_type)}>{busy ? "Expanding…" : "Expand neighbours"}</button>

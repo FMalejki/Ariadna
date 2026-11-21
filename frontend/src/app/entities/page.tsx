@@ -39,7 +39,7 @@ function Profile({ id, onOpen }: { id: string; onOpen: (id: string) => void }) {
             <div className="card stat">{p.relationships.length}<small>relationships</small></div>
             <div className="card stat">{p.sources.length}<small>sources</small></div>
           </div>
-          <div className="muted">First observed {when(e.first_observed_at)} · last observed {when(e.last_observed_at)} · last update {when(p.last_update)}</div>
+          <div className="muted">First observed {when(e.first_observed_at)}, last observed {when(e.last_observed_at)}, last update {when(p.last_update)}</div>
           <h3>Verified on-chain events ({p.verified_onchain_events.length})</h3>
           {p.verified_onchain_events.length === 0 ? <div className="muted">None. Nothing about this entity has been verified against a blockchain provider.</div> : (
             <table><tbody>{p.verified_onchain_events.map((o: any) => <tr key={o.id}><td><Badge value="verified" /></td><td>{o.source}</td><td>{when(o.observed_at)}</td></tr>)}</tbody></table>
@@ -63,7 +63,7 @@ function Profile({ id, onOpen }: { id: string; onOpen: (id: string) => void }) {
             <tbody>
               {p.relationships.map((r: any) => (
                 <tr key={r.id} className="click" onClick={() => setRel(r.id)}>
-                  <td>{r.direction === "in" ? "← " : "→ "}<code>{r.relationship_type}</code></td>
+                  <td>{r.direction === "in" ? "incoming " : "outgoing "}<code>{r.relationship_type}</code></td>
                   <td><a href="#" onClick={(ev) => { ev.preventDefault(); ev.stopPropagation(); onOpen(r.other.id); }}>{short(r.other.label ?? r.other.canonical_identifier, 36)}</a><div className="muted">{r.other.entity_type}</div></td>
                   <td><Badge value={r.status} /></td><td><Badge value={r.review_status} /></td><td>{when(r.last_observed_at)}</td>
                 </tr>
@@ -97,7 +97,7 @@ function Profile({ id, onOpen }: { id: string; onOpen: (id: string) => void }) {
           {p.claims.length === 0 ? <Empty>No claims.</Empty> : (
             <table>
               <thead><tr><th>Claim</th><th>Review</th><th>Verification</th></tr></thead>
-              <tbody>{p.claims.map((c: any) => <tr key={c.id}><td>{c.subject_reference} <code>{c.predicate}</code> {c.object_reference}<div className="muted">“{short(c.supporting_text, 120)}” · {c.model}</div></td><td><Badge value={c.review_status} /></td><td><Badge value={c.verification_status} /></td></tr>)}</tbody>
+              <tbody>{p.claims.map((c: any) => <tr key={c.id}><td>{c.subject_reference} <code>{c.predicate}</code> {c.object_reference}<div className="muted">“{short(c.supporting_text, 120)}” ({c.model})</div></td><td><Badge value={c.review_status} /></td><td><Badge value={c.verification_status} /></td></tr>)}</tbody>
             </table>
           )}
         </>

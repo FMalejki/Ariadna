@@ -80,7 +80,7 @@ export default function Discovery() {
             )}
             {created.tasks.length} task(s) planned, {created.executed.length} executed.{" "}
             <Link href={`/investigations?id=${created.investigation.id}`}>Open investigation</Link>
-            {created.seed?.entity_id && <> · <Link href={`/graph?root=${created.seed.entity_id}`}>View in graph</Link></>}
+            {created.seed?.entity_id && <> <Link href={`/graph?root=${created.seed.entity_id}`}>View in graph</Link></>}
           </div>
         )}
       </div>

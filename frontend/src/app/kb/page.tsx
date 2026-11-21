@@ -69,7 +69,7 @@ function Claims() {
         <table>
           <thead><tr><th>Claim</th><th>Evidence text</th><th>Model</th><th /></tr></thead>
           <tbody>{q.data?.map((c) => (
-            <tr key={c.id}><td>{c.subject_reference} <code>{c.predicate}</code> {c.object_reference}</td><td className="muted">“{short(c.supporting_text, 120)}”</td><td className="muted">{c.model} · {c.prompt_version}</td>
+            <tr key={c.id}><td>{c.subject_reference} <code>{c.predicate}</code> {c.object_reference}</td><td className="muted">“{short(c.supporting_text, 120)}”</td><td className="muted">{c.model}, prompt {c.prompt_version}</td>
               <td className="row">{c.review_status === "pending" && can("analyst") ? <><button className="good sm" onClick={() => m.mutate({ id: c.id, decision: "accepted" })}>Accept</button><button className="danger sm" onClick={() => m.mutate({ id: c.id, decision: "rejected" })}>Reject</button></> : <Badge value={c.review_status} />}</td></tr>))}</tbody>
         </table>
       )}
