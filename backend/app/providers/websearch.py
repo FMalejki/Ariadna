@@ -154,7 +154,7 @@ class WebSearchProvider(IntelligenceProvider):
             "query": query, "backend_requested": requested, "backend_used": used, "fallback": fallback,
             "unofficial_backend": used == "ddgs", "retrieved_at": (ctx.now or datetime.now(UTC)).isoformat(),
             "results": results,
-            "note": "Search results are leads (tool_generated_discovery). They do not establish facts about any person or address.",
+            "note": "Wyniki wyszukiwania to tropy (tool_generated_discovery). Nie ustalają faktów o żadnej osobie ani adresie.",
         }
         return RawResult(
             raw=json.dumps(doc, sort_keys=True, ensure_ascii=False).encode(), parsed=doc,

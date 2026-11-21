@@ -9,7 +9,7 @@ import { Badge, Empty, ErrorLine, Page, short, when } from "@/components/ui";
 
 type StageCfg = { id: string; label: string; requires: string | null };
 const LIMIT_LABELS: [string, string][] = [
-  ["max_queries", "max queries"], ["max_pages", "max pages"], ["max_addresses", "max addresses"], ["max_seconds", "max seconds"],
+  ["max_queries", "maks. zapytań"], ["max_pages", "maks. stron"], ["max_addresses", "maks. adresów"], ["max_seconds", "maks. sekund"],
 ];
 const STORE = "osint.automation.run";
 const FINAL = ["completed", "stopped_by_limit", "aborted", "failed"];
@@ -82,28 +82,28 @@ export default function Automation() {
   const active = run && !FINAL.includes(run.status);
 
   return (
-    <Page title="Automation" sub="Run the lead workflow in stages. Every step is limited, logged and abortable; nothing here establishes who owns a wallet.">
+    <Page title="Automatyzacja" sub="Uruchamia przepływ wyszukiwania tropów etapami. Każdy krok ma limit, jest zapisywany w dzienniku i można go przerwać. Nic tutaj nie ustala, kto jest właścicielem portfela.">
       <div className="warnbox">
-        A page mention is not ownership. Tracking is rule-based (the full name or login appears near the address on the same page) and creates a
-        page-mention link only. Counterparties are transaction facts. Sherlock hits are username-string matches, not identity.
-        The web search backend ddgs, when used, is unofficial and may conflict with the engines' terms.
+        Wzmianka na stronie nie jest dowodem własności. Śledzenie opiera się na regule (imię i nazwisko lub login występuje obok adresu na tej samej stronie)
+        i tworzy wyłącznie powiązanie typu „wzmianka na stronie”. Kontrahenci są faktami transakcyjnymi. Trafienia Sherlocka to zgodność ciągu znaków z nazwą użytkownika, a nie tożsamość.
+        Silnik wyszukiwania ddgs, jeśli zostanie użyty, jest nieoficjalny i może naruszać regulaminy wyszukiwarek.
       </div>
 
       <div className="card">
-        <h2>New run</h2>
-        {!can("analyst") && <div className="muted">Viewer role can read runs but cannot start them.</div>}
+        <h2>Nowe uruchomienie</h2>
+        {!can("analyst") && <div className="muted">Obserwator może przeglądać uruchomienia, ale nie może ich rozpoczynać.</div>}
         <div className="row">
-          <input placeholder="Imię i nazwisko" value={fullName} onChange={(e) => setFullName(e.target.value)} />
-          <input placeholder="Login" value={login} onChange={(e) => setLogin(e.target.value)} />
+          <input placeholder="Imię i nazwisko" aria-label="Imię i nazwisko" autoComplete="off" value={fullName} onChange={(e) => setFullName(e.target.value)} />
+          <input placeholder="Login" aria-label="Login" autoComplete="off" spellCheck={false} autoCapitalize="none" value={login} onChange={(e) => setLogin(e.target.value)} />
         </div>
         <div style={{ margin: "8px 0" }}>
           {stageCfg.map((s) => {
             const lacking = s.requires && !stages.includes(s.requires);
             return (
-              <label key={s.id} style={{ display: "block", margin: "2px 0" }} title={lacking ? `requires stage ${s.requires}` : undefined}>
+              <label key={s.id} style={{ display: "block", margin: "2px 0" }} title={lacking ? `wymaga etapu ${s.requires}` : undefined}>
                 <input type="checkbox" checked={stages.includes(s.id)} onChange={() => setStages(toggleStage(stages, s.id, stageCfg))} />{" "}
                 <b>{s.id}</b>: {s.label}
-                {s.requires && <span className="muted"> (requires {s.requires})</span>}
+                {s.requires && <span className="muted"> (wymaga {s.requires})</span>}
               </label>
             );
           })}
@@ -111,7 +111,7 @@ export default function Automation() {
         {stages.includes("B") && (
           <textarea
             className="mono" rows={3} style={{ width: "100%" }} value={queries} onChange={(e) => setQueries(e.target.value)}
-            placeholder="Search queries, one per line (optional). Empty = generated suggestions based on the name or login, cut to the query limit."
+            placeholder="Zapytania wyszukiwarki, jedno w wierszu (opcjonalnie). Puste pole oznacza podpowiedzi wygenerowane na podstawie imienia i nazwiska lub loginu, przycięte do limitu zapytań." aria-label="Zapytania wyszukiwarki" spellCheck={false}
           />
         )}
         <div className="row" style={{ marginTop: 8 }}>
@@ -123,12 +123,12 @@ export default function Automation() {
             </label>
           ))}
           <span className="grow" />
-          <button disabled={!can("analyst") || !hasInput || needsLogin || stages.length === 0 || start.isPending} onClick={() => start.mutate()}>Start run</button>
+          <button disabled={!can("analyst") || !hasInput || needsLogin || stages.length === 0 || start.isPending} onClick={() => start.mutate()}>Rozpocznij uruchomienie</button>
         </div>
         <div className="muted">
-          Limits always apply: when one is reached the run stops as “stopped by limit” and the reason is stored.
-          {stages.includes("A") && " Starting with stage A ticked is your approval to run Sherlock for this login (it checks many sites; it is audited)."}
-          {needsLogin && " Stage A needs a login."}
+          Limity obowiązują zawsze: po osiągnięciu któregoś z nich uruchomienie zatrzymuje się ze statusem „zatrzymane limitem”, a powód jest zapisywany.
+          {stages.includes("A") && " Rozpoczęcie z zaznaczonym etapem A oznacza Twoją zgodę na uruchomienie Sherlocka dla tego loginu (sprawdza wiele serwisów, a działanie trafia do audytu)."}
+          {needsLogin && " Etap A wymaga loginu."}
         </div>
         <ErrorLine error={start.error} />
       </div>
@@ -136,27 +136,27 @@ export default function Automation() {
       {run && (
         <div className="card">
           <div className="row">
-            <h2 style={{ margin: 0 }}>Run {short(run.id, 8)}</h2>
+            <h2 style={{ margin: 0 }}>Uruchomienie {short(run.id, 8)}</h2>
             <Badge value={run.status} />
-            <span className="muted">stages {run.stages?.join("")}, {run.subject ?? "—"}{run.login ? `, login ${run.login}` : ""}</span>
+            <span className="muted">etapy: {run.stages?.join("")}, {run.subject ?? "—"}{run.login ? `, login ${run.login}` : ""}</span>
             <span className="grow" />
-            <Link href={`/leads`} onClick={() => window.localStorage.setItem("osint.leads.investigation", run.investigation_id)}>Lead Search</Link>
-            <Link href={`/investigations?id=${run.investigation_id}`}>investigation</Link>
-            {active && <button className="danger" disabled={!can("analyst") || abort.isPending || run.abort_requested} onClick={() => abort.mutate()}>{run.abort_requested ? "aborting…" : "Abort"}</button>}
+            <Link href={`/leads`} onClick={() => window.localStorage.setItem("osint.leads.investigation", run.investigation_id)}>Wyszukiwanie tropów</Link>
+            <Link href={`/investigations?id=${run.investigation_id}`}>sprawa</Link>
+            {active && <button className="danger" disabled={!can("analyst") || abort.isPending || run.abort_requested} onClick={() => abort.mutate()}>{run.abort_requested ? "Przerywanie…" : "Przerwij"}</button>}
           </div>
           <ErrorLine error={abort.error} />
-          {run.stop_reason && <div className="notice">{run.status === "stopped_by_limit" ? "Stopped by limit: " : ""}{run.stop_reason}</div>}
+          {run.stop_reason && <div className="notice">{run.status === "stopped_by_limit" ? "Zatrzymane limitem: " : ""}{run.stop_reason}</div>}
           <div className="row">
             {Object.entries(run.counters ?? {}).map(([k, v]) => <span key={k} className="muted">{k}: <b>{String(v)}</b></span>)}
-            <span className="muted">phase: {run.phase}</span>
-            {run.started_at && <span className="muted">started {when(run.started_at)}</span>}
+            <span className="muted">faza: {run.phase}</span>
+            {run.started_at && <span className="muted">rozpoczęto {when(run.started_at)}</span>}
           </div>
-          {active && <div className="muted">The worker advances this run in the background; this page refreshes by itself.</div>}
+          {active && <div className="muted">Proces w tle prowadzi to uruchomienie dalej, a ta strona odświeża się sama.</div>}
 
-          <h3>Log</h3>
+          <h3>Dziennik</h3>
           {run.log?.length ? (
             <table>
-              <thead><tr><th>Time</th><th>Stage</th><th>Step</th><th>Result</th><th>Target</th><th>Detail</th></tr></thead>
+              <thead><tr><th>Czas</th><th>Etap</th><th>Krok</th><th>Wynik</th><th>Cel</th><th>Szczegóły</th></tr></thead>
               <tbody>
                 {run.log.map((e: any, i: number) => (
                   <tr key={i}>
@@ -168,20 +168,20 @@ export default function Automation() {
                 ))}
               </tbody>
             </table>
-          ) : <Empty>No steps yet.</Empty>}
+          ) : <Empty>Brak kroków.</Empty>}
 
           {run.candidates?.length > 0 && (
             <>
-              <h3>Address candidates ({run.candidates.length})</h3>
-              <div className="muted">Only candidates with the full name or login in their context are tracked (stage C). Others stay candidates.</div>
+              <h3>Kandydaci na adresy ({run.candidates.length})</h3>
+              <div className="muted">Śledzeni są tylko kandydaci, w których kontekście występuje imię i nazwisko lub login (etap C). Pozostali zostają kandydatami.</div>
               <table>
-                <thead><tr><th>Network</th><th>Address</th><th>Pages</th><th>Name/login nearby</th><th>Tracked</th></tr></thead>
+                <thead><tr><th>Sieć</th><th>Adres</th><th>Strony</th><th>Imię i nazwisko lub login obok</th><th>Śledzony</th></tr></thead>
                 <tbody>
                   {run.candidates.map((c: any) => (
                     <tr key={`${c.network}${c.address}`}>
                       <td>{c.network}</td><td className="mono">{c.address}</td><td>{c.pages}</td>
-                      <td>{c.matched_term ?? <span className="muted">no</span>}</td>
-                      <td>{c.tracked ? <Badge value="succeeded" title="page mention recorded; not ownership" /> : <span className="muted">no</span>}</td>
+                      <td>{c.matched_term ?? <span className="muted">nie</span>}</td>
+                      <td>{c.tracked ? <Badge value="succeeded" title="zapisano wzmiankę na stronie; to nie jest dowód własności" /> : <span className="muted">nie</span>}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -190,14 +190,14 @@ export default function Automation() {
           )}
           {run.tracked?.length > 0 && (
             <div className="row" style={{ marginTop: 8 }}>
-              <span className="muted">Open in the graph:</span>
+              <span className="muted">Otwórz w grafie:</span>
               {run.tracked.map((w: any) => <Link key={w.entity_id} href={`/graph?root=${w.entity_id}`}>{short(w.address, 14)}</Link>)}
             </div>
           )}
           {run.profile_urls?.length > 0 && (
             <>
-              <h3>Sherlock profile URLs ({run.profile_urls.length})</h3>
-              <div className="muted">Pages that exist for the same username string. Not evidence that one person controls them.</div>
+              <h3>Adresy profili znalezione przez Sherlocka ({run.profile_urls.length})</h3>
+              <div className="muted">Strony istniejące dla tego samego ciągu znaków nazwy użytkownika. To nie dowodzi, że kontroluje je jedna osoba.</div>
               <ul>{run.profile_urls.map((u: string) => <li key={u} className="mono">{u}</li>)}</ul>
             </>
           )}
@@ -205,10 +205,10 @@ export default function Automation() {
       )}
 
       <div className="card">
-        <h2>Recent runs</h2>
+        <h2>Ostatnie uruchomienia</h2>
         {list.data?.runs?.length ? (
           <table>
-            <thead><tr><th>Started</th><th>Subject / login</th><th>Stages</th><th>Status</th><th>By</th><th /></tr></thead>
+            <thead><tr><th>Rozpoczęto</th><th>Osoba / login</th><th>Etapy</th><th>Status</th><th>Autor</th><th /></tr></thead>
             <tbody>
               {list.data.runs.map((r: any) => (
                 <tr key={r.id}>
@@ -217,12 +217,12 @@ export default function Automation() {
                   <td>{r.stages?.join("")}</td>
                   <td><Badge value={r.status} title={r.stop_reason ?? undefined} /></td>
                   <td className="muted">{r.created_by}</td>
-                  <td><button onClick={() => setRunId(r.id)}>Open</button></td>
+                  <td><button onClick={() => setRunId(r.id)}>Otwórz</button></td>
                 </tr>
               ))}
             </tbody>
           </table>
-        ) : <Empty>No automation runs yet.</Empty>}
+        ) : <Empty>Brak uruchomień automatyzacji.</Empty>}
       </div>
     </Page>
   );

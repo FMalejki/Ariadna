@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
+import { label } from "@/lib/i18n";
 import { Badge, Empty, ErrorLine, Page, short, when } from "@/components/ui";
 
 export default function Discovery() {
@@ -44,60 +45,60 @@ export default function Discovery() {
     onSuccess: (r) => { setCreated(r); refresh(); },
   });
   const decide = useMutation({
-    mutationFn: (v: { id: string; approve: boolean }) => api(`/discovery/tasks/${v.id}/decision`, { body: { approve: v.approve, reason: v.approve ? "approved in UI" : "rejected in UI" } }),
+    mutationFn: (v: { id: string; approve: boolean }) => api(`/discovery/tasks/${v.id}/decision`, { body: { approve: v.approve, reason: v.approve ? "zatwierdzono w interfejsie" : "odrzucono w interfejsie" } }),
     onSuccess: refresh,
   });
   const retry = useMutation({ mutationFn: (id: string) => api(`/discovery/tasks/${id}/retry`, { method: "POST" }), onSuccess: refresh });
   const run = useMutation({ mutationFn: () => api("/discovery/run", { body: { limit: 25 } }), onSuccess: refresh });
 
   return (
-    <Page title="Discovery" sub="Start from a full name, a login or a seed (at least one). Each result may propose follow-up tasks; sensitive categories wait for approval.">
+    <Page title="Rozpoznanie" sub="Zacznij od imienia i nazwiska, loginu lub elementu początkowego (wystarczy jeden). Każdy wynik może zaproponować kolejne zadania, a kategorie wrażliwe czekają na zatwierdzenie.">
       <div className="card">
-        <h2>New investigation</h2>
+        <h2>Nowa sprawa</h2>
         <div className="row">
-          <input placeholder="Investigation name (optional)" value={name} onChange={(e) => setName(e.target.value)} />
-          <input placeholder="Imię i nazwisko" value={fullName} onChange={(e) => setFullName(e.target.value)} />
-          <input placeholder="Login" value={login} onChange={(e) => setLogin(e.target.value)} />
+          <input placeholder="Nazwa sprawy (opcjonalnie)" aria-label="Nazwa sprawy" value={name} onChange={(e) => setName(e.target.value)} />
+          <input placeholder="Imię i nazwisko" aria-label="Imię i nazwisko" autoComplete="off" value={fullName} onChange={(e) => setFullName(e.target.value)} />
+          <input placeholder="Login" aria-label="Login" autoComplete="off" spellCheck={false} autoCapitalize="none" value={login} onChange={(e) => setLogin(e.target.value)} />
         </div>
         <div className="row">
-          <input className="grow" placeholder="Seed (optional): URL, @handle, wallet address, tx hash or domain" value={seed} onChange={(e) => setSeed(e.target.value)} />
-          <label>depth <input type="number" min={0} max={5} value={depth} onChange={(e) => setDepth(Number(e.target.value))} style={{ width: 60 }} /></label>
-          <label><input type="checkbox" checked={runNow} onChange={(e) => setRunNow(e.target.checked)} /> run approved tasks now</label>
-          <button disabled={!can("analyst") || !hasInput || start.isPending} onClick={() => start.mutate()}>Start</button>
+          <input className="grow" placeholder="Element początkowy (opcjonalnie): adres URL, @uchwyt, adres portfela, hash transakcji lub domena" aria-label="Element początkowy" spellCheck={false} value={seed} onChange={(e) => setSeed(e.target.value)} />
+          <label>głębokość <input type="number" min={0} max={5} value={depth} onChange={(e) => setDepth(Number(e.target.value))} style={{ width: 60 }} /></label>
+          <label><input type="checkbox" checked={runNow} onChange={(e) => setRunNow(e.target.checked)} /> wykonaj zatwierdzone zadania od razu</label>
+          <button disabled={!can("analyst") || !hasInput || start.isPending} onClick={() => start.mutate()}>Rozpocznij</button>
         </div>
         <div className="muted">
-          Login: Sherlock checks many sites (no platform is assumed); a hit is a username-string match, not proof of identity.
-          The full name creates no entity; it only parameterises the investigation and its searches.
+          Login: Sherlock sprawdza wiele serwisów (nie zakłada żadnej platformy). Trafienie oznacza tylko zgodność ciągu znaków z nazwą użytkownika i nie dowodzi tożsamości.
+          Imię i nazwisko nie tworzy encji. Służy wyłącznie jako parametr sprawy i jej wyszukiwań.
         </div>
-        {!can("analyst") && <div className="muted">Viewer role cannot start investigations.</div>}
+        {!can("analyst") && <div className="muted">Rola obserwatora nie pozwala rozpoczynać spraw.</div>}
         <ErrorLine error={start.error} />
         {created && (
           <div className="notice">
             {created.seed ? (
-              <>Seed resolved to <code>{created.seed.canonical_identifier}</code> ({created.seed.entity_type}). </>
+              <>Element początkowy rozpoznano jako <code>{created.seed.canonical_identifier}</code> ({label(created.seed.entity_type)}). </>
             ) : (
-              <>No entity created (full name only: it is a parameter of the investigation). </>
+              <>Nie utworzono encji (podano tylko imię i nazwisko, które jest parametrem sprawy). </>
             )}
-            {created.tasks.length} task(s) planned, {created.executed.length} executed.{" "}
-            <Link href={`/investigations?id=${created.investigation.id}`}>Open investigation</Link>
-            {created.seed?.entity_id && <> <Link href={`/graph?root=${created.seed.entity_id}`}>View in graph</Link></>}
+            Zaplanowane zadania: {created.tasks.length}, wykonane: {created.executed.length}.{" "}
+            <Link href={`/investigations?id=${created.investigation.id}`}>Otwórz sprawę</Link>
+            {created.seed?.entity_id && <> <Link href={`/graph?root=${created.seed.entity_id}`}>Pokaż w grafie</Link></>}
           </div>
         )}
       </div>
 
-      <h3>Task queue</h3>
+      <h3>Kolejka zadań</h3>
       <div className="row">
-        <select value={filter} onChange={(e) => setFilter(e.target.value)}>
-          <option value="">all statuses</option>
-          {["pending_approval", "queued", "running", "completed", "reused", "failed", "dead", "rejected", "skipped"].map((s) => <option key={s}>{s}</option>)}
+        <select aria-label="Filtr statusu zadań" value={filter} onChange={(e) => setFilter(e.target.value)}>
+          <option value="">wszystkie statusy</option>
+          {["pending_approval", "queued", "running", "completed", "reused", "failed", "dead", "rejected", "skipped"].map((s) => <option key={s} value={s}>{label(s)}</option>)}
         </select>
-        <button className="ghost" disabled={!can("analyst") || run.isPending} onClick={() => run.mutate()}>Run due tasks</button>
+        <button className="ghost" disabled={!can("analyst") || run.isPending} onClick={() => run.mutate()}>Wykonaj zadania do uruchomienia</button>
       </div>
       <ErrorLine error={tasks.error || decide.error || retry.error || run.error} />
       <div className="card">
-        {tasks.data && tasks.data.length === 0 ? <Empty>No tasks. Start an investigation above.</Empty> : (
+        {tasks.data && tasks.data.length === 0 ? <Empty>Brak zadań. Rozpocznij sprawę powyżej.</Empty> : (
           <table>
-            <thead><tr><th>Provider</th><th>Target</th><th>Depth</th><th>Status</th><th>Reason</th><th>Created</th><th /></tr></thead>
+            <thead><tr><th>Dostawca</th><th>Cel</th><th>Głębokość</th><th>Status</th><th>Powód</th><th>Utworzono</th><th /></tr></thead>
             <tbody>
               {tasks.data?.map((t) => (
                 <tr key={t.id}>
@@ -110,11 +111,11 @@ export default function Discovery() {
                   <td className="row">
                     {t.status === "pending_approval" && can("analyst") && (
                       <>
-                        <button className="good sm" onClick={() => decide.mutate({ id: t.id, approve: true })}>Approve</button>
-                        <button className="danger sm" onClick={() => decide.mutate({ id: t.id, approve: false })}>Reject</button>
+                        <button className="good sm" onClick={() => decide.mutate({ id: t.id, approve: true })}>Zatwierdź</button>
+                        <button className="danger sm" onClick={() => decide.mutate({ id: t.id, approve: false })}>Odrzuć</button>
                       </>
                     )}
-                    {t.status === "dead" && can("analyst") && <button className="ghost sm" onClick={() => retry.mutate(t.id)}>Retry</button>}
+                    {t.status === "dead" && can("analyst") && <button className="ghost sm" onClick={() => retry.mutate(t.id)}>Ponów</button>}
                   </td>
                 </tr>
               ))}

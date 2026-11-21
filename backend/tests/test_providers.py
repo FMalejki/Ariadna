@@ -146,7 +146,7 @@ class TestSherlock:
         ns = parse_sherlock_csv(csv_text, subject, "t")
         assert ns.payload["claimed_count"] == 1
         assert ns.links and all(l.relationship_type == "USERNAME_MATCHES_PROFILE" and l.match_candidate_rule for l in ns.links)
-        assert ns.payload["note"].startswith("A claimed result is a username-string match only")
+        assert ns.payload["note"].startswith("Wynik „claimed” to wyłącznie dopasowanie ciągu znaków nazwy użytkownika")
 
     def test_bad_header_rejected(self):
         with pytest.raises(ProviderError):

@@ -49,8 +49,8 @@ from app.providers.base import (
 )
 
 NOTE_ADDRESS = (
-    "On-chain facts about this address only. Counterparties are other addresses seen in the same transactions; "
-    "exchanges, contracts and services are counterparties of many unrelated parties. No ownership is implied."
+    "Wyłącznie fakty z blockchaina o tym adresie. Kontrahenci to inne adresy widoczne w tych samych transakcjach; "
+    "giełdy, kontrakty i usługi są kontrahentami wielu niezwiązanych stron. Nie oznacza to własności."
 )
 
 

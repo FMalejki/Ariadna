@@ -248,7 +248,7 @@ class EvmRpcProvider(IntelligenceProvider):
 
     def _normalize_address(self, ref: Reference, doc: dict, now: datetime) -> list[NormalizedObservation]:
         payload = {"address": ref.attrs["address"], "per_network": doc["results"], "errors": doc["errors"],
-                   "note": "Activity counts are on-chain facts about the address only; no ownership is implied."}
+                   "note": "Liczby aktywności to wyłącznie fakty z blockchaina o adresie. Nie oznaczają własności."}
         if doc.get("page"):
             payload["page"] = True
         return [
@@ -329,7 +329,7 @@ class SolanaRpcProvider(IntelligenceProvider):
         if doc["kind"] == "account":
             value = (doc["result"] or {}).get("value")
             payload = {"found": doc["found"], "lamports": (value or {}).get("lamports"), "executable": (value or {}).get("executable"),
-                       "owner_program": (value or {}).get("owner"), "note": "on-chain account facts only; no ownership by any person/account is implied"}
+                       "owner_program": (value or {}).get("owner"), "note": "wyłącznie fakty o koncie z blockchaina; nie oznaczają własności przez żadną osobę ani konto"}
             if doc.get("history"):
                 payload.update({"network": "solana", "recent_transactions": doc["history"]["recent_transactions"],
                                 "counterparties": doc["history"]["counterparties"], "history_truncated": doc["history"]["history_truncated"],

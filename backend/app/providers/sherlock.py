@@ -139,7 +139,7 @@ def parse_sherlock_csv(text: str, subject: Reference, tool_version: str, now: da
         "username": username,
         "claimed": claimed,
         "claimed_count": len(claimed),
-        "note": "A claimed result is a username-string match only; it is not evidence that the same person controls the accounts.",
+        "note": "Wynik „claimed” to wyłącznie dopasowanie ciągu znaków nazwy użytkownika; nie dowodzi, że te konta kontroluje ta sama osoba.",
     }
     return NormalizedObservation(
         source=SourceRef(

@@ -100,21 +100,21 @@ def propose_queries(subject: str, extra_terms: list[str] | None = None) -> list[
     s = _clean_subject(subject)
     q = f'"{s}"'
     out = [
-        (q, "exact phrase: baseline mentions of the name"),
-        (f'{q} wallet', "mentions of a wallet next to the name"),
-        (f'{q} solana', "Solana-specific mentions"),
-        (f'{q} ethereum', "Ethereum/EVM-specific mentions"),
-        (f'{q} bitcoin', "Bitcoin-specific mentions"),
-        (f'{q} ("0x" OR "bc1" OR "wallet address" OR "adres portfela")', "address-like tokens or wallet-address phrases near the name"),
-        (f'{q} (donate OR donation OR "send to" OR "wpłata" OR "wplata")', "payment/donation calls that usually quote an address"),
-        (f'{q} site:olx.pl', "classified ads (the page text may contain a payment address)"),
-        (f'{q} site:github.com', "code/readme pages that often list donation addresses"),
-        (f'{q} site:medium.com', "articles/posts that may quote an address"),
+        (q, "dokładna fraza: podstawowe wzmianki o nazwie"),
+        (f'{q} wallet', "wzmianki o portfelu obok nazwy"),
+        (f'{q} solana', "wzmianki dotyczące Solany"),
+        (f'{q} ethereum', "wzmianki dotyczące Ethereum/EVM"),
+        (f'{q} bitcoin', "wzmianki dotyczące Bitcoina"),
+        (f'{q} ("0x" OR "bc1" OR "wallet address" OR "adres portfela")', "ciągi przypominające adresy lub frazy o adresie portfela obok nazwy"),
+        (f'{q} (donate OR donation OR "send to" OR "wpłata" OR "wplata")', "wezwania do wpłat lub darowizn, które zwykle podają adres"),
+        (f'{q} site:olx.pl', "ogłoszenia (treść strony może zawierać adres do płatności)"),
+        (f'{q} site:github.com', "strony kodu i pliki readme, które często podają adresy darowizn"),
+        (f'{q} site:medium.com', "artykuły i wpisy, które mogą podawać adres"),
     ]
     for term in extra_terms or []:
         t = re.sub(r"\s+", " ", term).strip()[:80]
         if t:
-            out.append((f"{q} {t}", f"analyst-supplied term: {t}"))
+            out.append((f"{q} {t}", f"fraza dodana przez analityka: {t}"))
     seen, res = set(), []
     for query, why in out:
         if query not in seen:
@@ -358,7 +358,7 @@ def track_address(
     return {
         "wallet_entity_id": wallet.id, "wallet_created": created, "page_entity_id": page_ent.id, "relationship_id": rel.id,
         "relationship_type": rel.relationship_type, "relationship_status": rel.status,
-        "note": "A page mention is recorded. It does not establish that anyone owns or controls this address.",
+        "note": "Zapisano wzmiankę na stronie. Nie ustala ona, że ktokolwiek jest właścicielem tego adresu lub go kontroluje.",
     }
 
 
@@ -623,7 +623,7 @@ def expand(session: Session, *, inv_id: str, entity_id: str, lookup_run_id: str,
             skipped.append({"address": caddr, "reason": "not a valid address for the network"})
             continue
         created.append(_link_counterparty(session, inv=inv, ent=ent, obs=obs, cp=cp, actor=actor, audit_action="lead.expand"))
-    return {"added": created, "skipped": skipped, "note": "Counterparties are transaction facts, not identity or ownership."}
+    return {"added": created, "skipped": skipped, "note": "Kontrahenci to fakty transakcyjne, a nie tożsamość ani własność."}
 
 
 def expand_wallet(session: Session, *, entity_id: str, actor: str) -> dict:
@@ -640,7 +640,7 @@ def expand_wallet(session: Session, *, entity_id: str, actor: str) -> dict:
     summary = {k: looked.get(k) for k in ("tool_run_id", "status", "error", "unavailable", "reused_prior_run", "retrieved_at", "lookup_run_id")}
     if "view" not in looked:
         return {"entity_id": ent.id, "lookup": summary, "added": [], "skipped_over_limit": 0, "linked_new": 0,
-                "note": "No on-chain data is available for this wallet, so nothing was added to the graph."}
+                "note": "Brak danych z blockchaina dla tego portfela, więc nic nie dodano do grafu."}
     obs = _address_observation(session, _run(session, looked["lookup_run_id"], _provider_for(net)))
     assert obs is not None
     best: dict[tuple[str, str], _Cp] = {}
@@ -660,7 +660,7 @@ def expand_wallet(session: Session, *, entity_id: str, actor: str) -> dict:
     return {
         "entity_id": ent.id, "lookup": summary, "added": added, "skipped_over_limit": len(rest),
         "linked_new": sum(1 for a in added if not a["already_present"]),
-        "note": "Counterparties are transaction facts (addresses seen in the same transactions), not identity or ownership.",
+        "note": "Kontrahenci to fakty transakcyjne (adresy widoczne w tych samych transakcjach), a nie tożsamość ani własność.",
     }
 
 

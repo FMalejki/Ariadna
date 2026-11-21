@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
+import { label } from "@/lib/i18n";
 import { Badge, Empty, ErrorLine, Page, Repeatability, short, when } from "@/components/ui";
 
 const NET_LABEL: Record<string, string> = { evm: "EVM", solana: "Solana", bitcoin: "Bitcoin" };
@@ -15,7 +16,7 @@ function Step({ n, title, children, hint }: { n: number; title: string; hint?: s
   return (
     <div className="card" style={{ marginBottom: 12 }}>
       <h2>
-        <span className="badge b-info" style={{ marginRight: 8 }}>step {n}</span>
+        <span className="badge b-info" style={{ marginRight: 8 }}>krok {n}</span>
         {title}
       </h2>
       {hint && <div className="muted" style={{ marginBottom: 8 }}>{hint}</div>}
@@ -30,7 +31,7 @@ function RunLine({ r }: { r: any }) {
   return (
     <div className="row" style={{ margin: "6px 0" }}>
       <Badge value={r.status} />
-      <span className="muted">{r.provider}, run {short(r.tool_run_id, 8)}</span>
+      <span className="muted">{r.provider}, uruchomienie {short(r.tool_run_id, 8)}</span>
       {r.error && <span className={r.unavailable ? "muted" : "err"}>{r.error}</span>}
     </div>
   );
@@ -128,85 +129,85 @@ export default function Leads() {
 
   return (
     <Page
-      title="Lead search: from a name to a wallet to on-chain facts"
-      sub="Find where a public wallet address is mentioned next to a person or topic, then check it on-chain. Every step is your decision. A mention is not ownership."
+      title="Wyszukiwanie tropów: od nazwiska do portfela i faktów z blockchaina"
+      sub="Znajdź miejsca, w których publiczny adres portfela występuje obok osoby lub tematu, a następnie sprawdź go w blockchainie. Każdy krok to Twoja decyzja. Wzmianka nie jest dowodem własności."
     >
       <div className="warnbox">
-        Search results are <b>leads</b>, not evidence. A page that shows an address next to a name proves only that the page says so. Nothing here links a
-        person to a wallet; counterparties are transaction facts, not identity. Contact data (e-mail, phone) is dropped; only address, short context and URL are kept.
+        Wyniki wyszukiwania to <b>tropy</b>, a nie dowody. Strona, która pokazuje adres obok nazwiska, dowodzi jedynie tego, że strona tak twierdzi. Nic tutaj nie łączy
+        osoby z portfelem. Kontrahenci to fakty transakcyjne, a nie tożsamość. Dane kontaktowe (e-mail, telefon) są odrzucane, zachowywany jest tylko adres, krótki kontekst i adres URL.
       </div>
       {cfg.data && (
         <div className="notice">
-          Search: Tavily {cfg.data.tavily_configured ? "configured (official API)" : "NOT configured (set OSINT_TAVILY_API_KEY)"}. ddgs is{" "}
-          <b>unofficial / terms-of-service gray</b> keyless scraping, used only as an explicit choice or a recorded fallback. On-chain: Bitcoin{" "}
-          {cfg.data.btc_esplora_configured ? "configured" : "not configured"}. EVM history explorers: {cfg.data.evm_explorer_networks.join(", ") || "none"}.
+          Wyszukiwanie: Tavily {cfg.data.tavily_configured ? "skonfigurowany (oficjalne API)" : "NIESKONFIGUROWANY (ustaw OSINT_TAVILY_API_KEY)"}. ddgs to{" "}
+          <b>nieoficjalne pobieranie wyników, w szarej strefie regulaminów</b>, bez klucza API. Jest używane tylko po jawnym wyborze albo jako zapisany w dzienniku zapas. Blockchain: Bitcoin{" "}
+          {cfg.data.btc_esplora_configured ? "skonfigurowany" : "nieskonfigurowany"}. Eksploratory historii EVM: {cfg.data.evm_explorer_networks.join(", ") || "brak"}.
         </div>
       )}
-      {!canAct && <div className="muted">Viewer role can read results but cannot run steps.</div>}
+      {!canAct && <div className="muted">Obserwator może czytać wyniki, ale nie może wykonywać kroków.</div>}
 
-      <Step n={1} title="Person or topic: proposed queries" hint="Suggestions are deterministic (no AI) and nothing is sent until you approve a query in step 2. Edit freely.">
+      <Step n={1} title="Osoba lub temat: proponowane zapytania" hint="Podpowiedzi są deterministyczne (bez AI), a nic nie jest wysyłane, dopóki nie zatwierdzisz zapytania w kroku 2. Możesz je dowolnie edytować.">
         <div className="row">
-          <input className="grow" placeholder='Person or topic, e.g. Jan Kowalski' value={subject} onChange={(e) => setSubject(e.target.value)} />
-          <input placeholder="extra terms, comma-separated" value={extra} onChange={(e) => setExtra(e.target.value)} />
-          <button disabled={!subject.trim() || propose.isPending} onClick={() => propose.mutate()}>Propose queries</button>
+          <input className="grow" placeholder='Osoba lub temat, np. Jan Kowalski' aria-label="Osoba lub temat" value={subject} onChange={(e) => setSubject(e.target.value)} />
+          <input placeholder="dodatkowe frazy, po przecinku" aria-label="Dodatkowe frazy" value={extra} onChange={(e) => setExtra(e.target.value)} />
+          <button disabled={!subject.trim() || propose.isPending} onClick={() => propose.mutate()}>Zaproponuj zapytania</button>
           <button className="ghost" disabled={!canAct || !subject.trim() || begin.isPending} onClick={() => begin.mutate()}>
-            {inv ? "Start a new session" : "Start session"}
+            {inv ? "Rozpocznij nową sesję" : "Rozpocznij sesję"}
           </button>
         </div>
         <ErrorLine error={propose.error || begin.error} />
         {inv && state.data && (
           <div className="notice">
-            Session <code>{short(inv, 8)}</code>: {state.data.investigation.name}. <Link href={`/investigations?id=${inv}`}>investigation</Link>
+            Sesja <code>{short(inv, 8)}</code>: {state.data.investigation.name}. <Link href={`/investigations?id=${inv}`}>Otwórz sprawę</Link>
           </div>
         )}
-        {!inv && queries.length > 0 && <div className="warnbox">Start a session to run searches (it groups your steps and audit trail).</div>}
+        {!inv && queries.length > 0 && <div className="warnbox">Rozpocznij sesję, aby uruchamiać wyszukiwania (grupuje Twoje kroki i ślad audytowy).</div>}
         {queries.length > 0 && (
           <table>
-            <thead><tr><th>Query (editable)</th><th>Why</th><th /></tr></thead>
+            <thead><tr><th>Zapytanie (można edytować)</th><th>Cel</th><th /></tr></thead>
             <tbody>
               {queries.map((q, i) => (
                 <tr key={q.purpose + i}>
                   <td>
-                    <input className="mono" style={{ width: "100%" }} value={q.query}
+                    <input className="mono" style={{ width: "100%" }} aria-label="Zapytanie wyszukiwarki" spellCheck={false} value={q.query}
                       onChange={(e) => setQueries((all) => all.map((x, j) => (j === i ? { ...x, query: e.target.value } : x)))} />
                   </td>
                   <td className="muted">{q.purpose}</td>
-                  <td><button className="sm" disabled={!canAct || !inv || search.isPending} onClick={() => search.mutate(q.query)}>Approve & search</button></td>
+                  <td><button className="sm" disabled={!canAct || !inv || search.isPending} onClick={() => search.mutate(q.query)}>Zatwierdź i szukaj</button></td>
                 </tr>
               ))}
             </tbody>
           </table>
         )}
         <div className="row" style={{ marginTop: 8 }}>
-          <label>search backend{" "}
+          <label>silnik wyszukiwania{" "}
             <select value={backend} onChange={(e) => setBackend(e.target.value)}>
-              <option value="auto">auto (Tavily, recorded fallback to ddgs)</option>
-              <option value="tavily">Tavily only</option>
-              <option value="ddgs">ddgs only (unofficial)</option>
+              <option value="auto">automatyczny (Tavily, z zapisanym przejściem na ddgs)</option>
+              <option value="tavily">tylko Tavily</option>
+              <option value="ddgs">tylko ddgs (nieoficjalny)</option>
             </select>
           </label>
         </div>
         <ErrorLine error={search.error} />
       </Step>
 
-      <Step n={2} title="Search results" hint="Pick pages worth reading. Only pages you choose are fetched.">
+      <Step n={2} title="Wyniki wyszukiwania" hint="Wybierz strony warte przeczytania. Pobierane są tylko strony, które wskażesz.">
         {searchRuns.length > 0 && (
           <div className="row" style={{ marginBottom: 6 }}>
-            <span className="muted">Earlier searches:</span>
+            <span className="muted">Wcześniejsze wyszukiwania:</span>
             {searchRuns.slice(0, 8).map((r: any) => (
               <button key={r.tool_run_id} className="ghost sm" onClick={() => loadPastRun(r.tool_run_id)} title={when(r.started_at)}>{short(r.query ?? r.target, 40)}</button>
             ))}
           </div>
         )}
-        {!results ? <Empty>No search yet. Approve a query in step 1.</Empty> : (
+        {!results ? <Empty>Nie wykonano jeszcze wyszukiwania. Zatwierdź zapytanie w kroku 1.</Empty> : (
           <>
             <RunLine r={results} />
             <div className="row">
-              <span className="muted">backend used:</span> <Badge value={results.backend_used} />
-              {results.unofficial_backend && <span className="warnbox" style={{ margin: 0 }}>unofficial ddgs scraping (ToS-gray, may break)</span>}
-              {results.fallback && <span className="warnbox" style={{ margin: 0 }}>fallback from {results.fallback.from}: {results.fallback.reason}</span>}
+              <span className="muted">użyty silnik:</span> <Badge value={results.backend_used} />
+              {results.unofficial_backend && <span className="warnbox" style={{ margin: 0 }}>nieoficjalne pobieranie wyników przez ddgs (szara strefa regulaminów, może przestać działać)</span>}
+              {results.fallback && <span className="warnbox" style={{ margin: 0 }}>przejście z {results.fallback.from}: {results.fallback.reason}</span>}
             </div>
-            {results.results?.length === 0 && <Empty>The search returned no results.</Empty>}
+            {results.results?.length === 0 && <Empty>Wyszukiwanie nie zwróciło wyników.</Empty>}
             <table>
               <tbody>
                 {results.results?.map((r: any) => (
@@ -217,7 +218,7 @@ export default function Leads() {
                       <div className="mono muted">{r.url}</div>
                       <div>{r.snippet}</div>
                     </td>
-                    <td><button className="sm" disabled={!canAct || fetchPage.isPending} onClick={() => fetchPage.mutate(r.url)}>Fetch page</button></td>
+                    <td><button className="sm" disabled={!canAct || fetchPage.isPending} onClick={() => fetchPage.mutate(r.url)}>Pobierz stronę</button></td>
                   </tr>
                 ))}
               </tbody>
@@ -225,26 +226,26 @@ export default function Leads() {
           </>
         )}
         <div className="row" style={{ marginTop: 8 }}>
-          <input className="grow mono" placeholder="…or paste a page URL you already have (e.g. an ad or a post)" value={manualUrl} onChange={(e) => setManualUrl(e.target.value)} />
-          <button className="ghost" disabled={!canAct || !inv || !manualUrl.trim() || fetchPage.isPending} onClick={() => fetchPage.mutate(manualUrl.trim())}>Fetch page</button>
+          <input className="grow mono" placeholder="…albo wklej adres strony, który już masz (np. ogłoszenie lub wpis)" aria-label="Adres strony" spellCheck={false} value={manualUrl} onChange={(e) => setManualUrl(e.target.value)} />
+          <button className="ghost" disabled={!canAct || !inv || !manualUrl.trim() || fetchPage.isPending} onClick={() => fetchPage.mutate(manualUrl.trim())}>Pobierz stronę</button>
         </div>
         <ErrorLine error={fetchPage.error} />
       </Step>
 
-      <Step n={3} title="Fetched page: address candidates" hint="Deterministic extraction of Solana, EVM and Bitcoin addresses with short context. robots.txt is respected; X, Telegram, Instagram, Facebook, TikTok and LinkedIn are never fetched.">
-        {!page ? <Empty>No page fetched yet.</Empty> : (
+      <Step n={3} title="Pobrana strona: kandydaci na adresy" hint="Deterministyczne wyodrębnianie adresów Solana, EVM i Bitcoin wraz z krótkim kontekstem. Plik robots.txt jest respektowany, a X, Telegram, Instagram, Facebook, TikTok i LinkedIn nigdy nie są pobierane.">
+        {!page ? <Empty>Nie pobrano jeszcze żadnej strony.</Empty> : (
           <>
             <RunLine r={page} />
             {page.page && (
               <>
                 <div>
-                  <b>{page.page.title ?? "(no title)"}</b> <span className="mono muted">{page.page.final_url}</span>
+                  <b>{page.page.title ?? "(brak tytułu)"}</b> <span className="mono muted">{page.page.final_url}</span>
                 </div>
                 <div className="muted">
-                  {page.page.bytes_read} bytes{page.page.truncated ? " (truncated at the size limit; later content was not read)" : ""}. The page body is not stored.
+                  {page.page.bytes_read} B{page.page.truncated ? " (obcięto na limicie rozmiaru, dalsza treść nie została przeczytana)" : ""}. Treść strony nie jest zapisywana.
                 </div>
-                {page.page.redirects?.length > 0 && <div className="muted">redirects: {page.page.redirects.join(", then ")}</div>}
-                {page.page.address_candidates.length === 0 && <Empty>No blockchain address found on this page.</Empty>}
+                {page.page.redirects?.length > 0 && <div className="muted">przekierowania: {page.page.redirects.join(", następnie ")}</div>}
+                {page.page.address_candidates.length === 0 && <Empty>Na tej stronie nie znaleziono adresu blockchain.</Empty>}
                 {page.page.address_candidates.map((c: any) => {
                   const key = `${c.network}:${c.address}`;
                   const t = tracked[key];
@@ -253,21 +254,21 @@ export default function Leads() {
                     <div key={key} className="ev">
                       <div className="row">
                         <Badge value={NET_LABEL[c.network] ?? c.network} />
-                        <code>{c.address}</code>
-                        <span className="muted">{c.occurrences}× on page</span>
+                        <code translate="no">{c.address}</code>
+                        <span className="muted">{c.occurrences}× na stronie</span>
                       </div>
                       <div><Repeatability r={c.repeatability} /></div>
                       {c.contexts.map((ctx: string, i: number) => <div key={i} className="muted" style={{ fontStyle: "italic" }}>“{ctx}”</div>)}
                       <div className="mono muted">{page.page.final_url}</div>
                       {t ? (
                         <div className="notice">
-                          Tracked as wallet. Relationship <code>{t.relationship_type}</code> <Badge value={t.relationship_status} />. {t.note}
+                          Zapisano jako portfel. Relacja <code>{t.relationship_type}</code> <Badge value={t.relationship_status} />. {t.note}
                         </div>
                       ) : (
                         <div className="row" style={{ marginTop: 6 }}>
-                          <input className="grow" placeholder="Why track this address? (required, min 10 characters; recorded in the audit log)" value={r}
+                          <input className="grow" placeholder="Dlaczego śledzić ten adres? (wymagane, min. 10 znaków; zapisywane w dzienniku audytu)" aria-label="Uzasadnienie śledzenia adresu" value={r}
                             onChange={(e) => setRationale((x) => ({ ...x, [key]: e.target.value }))} />
-                          <button className="sm" disabled={!canAct || r.trim().length < 10 || track.isPending} onClick={() => track.mutate(c)}>Track address</button>
+                          <button className="sm" disabled={!canAct || r.trim().length < 10 || track.isPending} onClick={() => track.mutate(c)}>Śledź adres</button>
                         </div>
                       )}
                     </div>
@@ -280,23 +281,23 @@ export default function Leads() {
         )}
       </Step>
 
-      <Step n={4} title="Tracked wallets: on-chain lookup" hint="Balance, recent transactions and counterparties from your configured node/explorer. Unavailable sources are reported, never replaced by scraping.">
-        {wallets.length === 0 ? <Empty>No tracked wallets yet. Track an address in step 3.</Empty> : wallets.map((w) => {
+      <Step n={4} title="Śledzone portfele: zapytanie do blockchaina" hint="Saldo, ostatnie transakcje i kontrahenci ze skonfigurowanego węzła lub eksploratora. Niedostępne źródła są zgłaszane i nigdy nie są zastępowane scrapingiem.">
+        {wallets.length === 0 ? <Empty>Brak śledzonych portfeli. Zacznij śledzić adres w kroku 3.</Empty> : wallets.map((w) => {
           const o = onchain[w.entity_id];
           return (
             <div key={w.entity_id} className="ev">
               <div className="row">
                 <Badge value={NET_LABEL[w.network] ?? w.network} /> <code>{w.address}</code>
-                <Link href={`/graph?root=${w.entity_id}`}>graph</Link>
+                <Link href={`/graph?root=${w.entity_id}`}>graf</Link>
                 <span className="grow" />
-                <button className="sm" disabled={!canAct || lookup.isPending} onClick={() => lookup.mutate({ entity_id: w.entity_id, refresh: false })}>Look up on-chain</button>
-                {o && <button className="ghost sm" disabled={!canAct || lookup.isPending} onClick={() => lookup.mutate({ entity_id: w.entity_id, refresh: true })}>Refresh</button>}
+                <button className="sm" disabled={!canAct || lookup.isPending} onClick={() => lookup.mutate({ entity_id: w.entity_id, refresh: false })}>Sprawdź w blockchainie</button>
+                {o && <button className="ghost sm" disabled={!canAct || lookup.isPending} onClick={() => lookup.mutate({ entity_id: w.entity_id, refresh: true })}>Odśwież</button>}
               </div>
               {w.repeatability && <div><Repeatability r={w.repeatability} /></div>}
               {o && (
                 <>
                   <RunLine r={o} />
-                  {o.reused_prior_run && <div className="muted">Reused a recent stored lookup (retrieved {when(o.retrieved_at)}); use Refresh to query the node again.</div>}
+                  {o.reused_prior_run && <div className="muted">Użyto niedawnego zapisanego zapytania (pobrano {when(o.retrieved_at)}). Użyj „Odśwież”, aby ponownie odpytać węzeł.</div>}
                   {o.view?.networks.map((n: any, ni: number) => {
                     const pages = (morePages[w.entity_id] ?? []).map((p: any) => ({ run: p.lookup_run_id, n: p.view?.networks?.find((x: any) => x.network === n.network) })).filter((p: any) => p.n);
                     const all = [{ run: o.lookup_run_id, n }, ...pages];
@@ -323,52 +324,52 @@ export default function Leads() {
                     <div key={n.network + ni} style={{ marginTop: 6 }}>
                       <div className="row">
                         <b>{n.network}</b>
-                        {n.found === false && <span className="muted">address not seen on this network</span>}
-                        {n.balance && <span>balance: <b>{n.balance}</b></span>}
-                        {n.tx_count != null && <span className="muted">tx count/nonce {n.tx_count}</span>}
+                        {n.found === false && <span className="muted">adres nie występuje w tej sieci</span>}
+                        {n.balance && <span>saldo: <b>{n.balance}</b></span>}
+                        {n.tx_count != null && <span className="muted">liczba transakcji / nonce: {n.tx_count}</span>}
                         {n.has_code && <Badge value="contract" />}
-                        {n.explorer_flags?.is_scam && <Badge value="explorer flags scam" />}
+                        {n.explorer_flags?.is_scam && <Badge value="explorer flags scam" title="eksplorator oznacza adres jako oszustwo" />}
                       </div>
                       {n.error && <div className="err">{n.error}</div>}
-                      {n.history_error && <div className="muted">history: {n.history_error}</div>}
+                      {n.history_error && <div className="muted">historia: {n.history_error}</div>}
                       {txs.length > 0 && (
                         <div style={{ maxHeight: 280, overflowY: "auto", border: "1px solid var(--border)", borderRadius: 6 }}>
                           <table>
-                            <thead style={{ position: "sticky", top: 0, background: "var(--panel)" }}><tr><th>Tx</th><th>Time</th><th>Direction / amount</th></tr></thead>
+                            <thead style={{ position: "sticky", top: 0, background: "var(--panel)" }}><tr><th>Transakcja</th><th>Czas</th><th>Kierunek / kwota</th></tr></thead>
                             <tbody>
                               {txs.map((t: any) => (
                                 <tr key={t.hash}>
                                   <td className="mono">{short(t.hash, 18)}</td>
                                   <td>{when(t.time)}</td>
-                                  <td>{t.direction ?? (t.failed ? "failed" : "")} {t.net_btc ? `${t.net_btc} BTC` : ""} {t.value_wei ? `${t.value_wei} wei` : ""}</td>
+                                  <td>{t.direction ?? (t.failed ? "nieudana" : "")} {t.net_btc ? `${t.net_btc} BTC` : ""} {t.value_wei ? `${t.value_wei} wei` : ""}</td>
                                 </tr>
                               ))}
                             </tbody>
                           </table>
                         </div>
                       )}
-                      {txs.length > 0 && <div className="muted">{txs.length} transaction(s) loaded{all.length > 1 ? ` from ${all.length} pages` : ""}.</div>}
+                      {txs.length > 0 && <div className="muted">Wczytane transakcje: {txs.length}{all.length > 1 ? ` (z ${all.length} stron)` : ""}.</div>}
                       {last.n.has_more ? (
                         <div className="row" style={{ marginTop: 4 }}>
                           <button className="ghost sm" disabled={!canAct || loadMore.isPending} onClick={() => loadMore.mutate({ entity_id: w.entity_id, lookup_run_id: last.run })}>
-                            {loadMore.isPending ? "Loading…" : "Load more"}
+                            {loadMore.isPending ? "Wczytywanie…" : "Wczytaj więcej"}
                           </button>
-                          <span className="muted">fetches the next page from the node/explorer as a separate, audited run</span>
+                          <span className="muted">pobiera kolejną stronę z węzła lub eksploratora jako osobne, audytowane uruchomienie</span>
                         </div>
                       ) : last.n.history_truncated ? (
-                        <div className="muted">History is truncated and no further page can be requested (cursor unavailable).</div>
-                      ) : txs.length > 0 ? <div className="muted">End of history reached.</div> : null}
+                        <div className="muted">Historia jest obcięta i nie można zażądać kolejnej strony (brak kursora).</div>
+                      ) : txs.length > 0 ? <div className="muted">Osiągnięto koniec historii.</div> : null}
                       {rows.length > 0 && (
                         <>
-                          <h3>Counterparties (you choose)</h3>
-                          <div className="notice">Other addresses seen in the same transactions. Exchanges and contracts appear for many unrelated parties; this is not ownership. Counts are summed over the loaded pages; the first page a counterparty appeared in is cited as its evidence.</div>
+                          <h3>Kontrahenci (wybierasz sam)</h3>
+                          <div className="notice">Inne adresy widoczne w tych samych transakcjach. Giełdy i kontrakty pojawiają się przy wielu niezwiązanych stronach, a to nie jest dowód własności. Liczby są sumowane po wczytanych stronach, a dowodem dla kontrahenta jest pierwsza strona, na której się pojawił.</div>
                           <div className="row">
                             <button className="ghost sm" disabled={selectable.length === 0} onClick={selectAll}>
-                              Select all{selectable.length > MAX_EXPAND ? ` (first ${MAX_EXPAND})` : ""}
+                              Zaznacz wszystkie{selectable.length > MAX_EXPAND ? ` (pierwsze ${MAX_EXPAND})` : ""}
                             </button>
-                            <button className="ghost sm" disabled={mine.length === 0} onClick={() => { const next = { ...picked }; mine.forEach((k) => delete next[k]); setPicked(next); }}>Clear</button>
-                            <span className={mine.length >= MAX_EXPAND ? "err" : "muted"}>{mine.length} / {MAX_EXPAND} selected</span>
-                            <span className="muted">Contracts ({rows.length - selectable.length}) are not selected by "Select all"</span>
+                            <button className="ghost sm" disabled={mine.length === 0} onClick={() => { const next = { ...picked }; mine.forEach((k) => delete next[k]); setPicked(next); }}>Wyczyść</button>
+                            <span className={mine.length >= MAX_EXPAND ? "err" : "muted"}>zaznaczono {mine.length} z {MAX_EXPAND}</span>
+                            <span className="muted">Kontrakty ({rows.length - selectable.length}) nie są zaznaczane przez „Zaznacz wszystkie”</span>
                           </div>
                           <div style={{ maxHeight: 320, overflowY: "auto", border: "1px solid var(--border)", borderRadius: 6 }}>
                             <table>
@@ -379,7 +380,7 @@ export default function Leads() {
                                   return (
                                     <tr key={k}>
                                       <td style={{ width: 28 }}>
-                                        <input type="checkbox" checked={checked} disabled={!checked && mine.length >= MAX_EXPAND}
+                                        <input type="checkbox" aria-label={`Wybierz ${c.address}`} checked={checked} disabled={!checked && mine.length >= MAX_EXPAND}
                                           onChange={(e) => setPicked((p) => { const next = { ...p }; if (e.target.checked) next[k] = true; else delete next[k]; return next; })} />
                                       </td>
                                       <td className="mono">{c.address}</td>
@@ -398,8 +399,8 @@ export default function Leads() {
                                   return { network, address, direction, lookup_run_id };
                                 });
                                 expand.mutate({ entity_id: w.entity_id, lookup_run_id: o.lookup_run_id, list });
-                              }}>Add selected as related wallets</button>
-                            <span className="muted">creates WALLET_TRANSACTED_WITH (a transaction fact), not an ownership link</span>
+                              }}>Dodaj zaznaczone jako powiązane portfele</button>
+                            <span className="muted">tworzy relację WALLET_TRANSACTED_WITH (fakt transakcyjny), a nie powiązanie własności</span>
                           </div>
                         </>
                       )}
@@ -408,7 +409,7 @@ export default function Leads() {
                   })}
                   {expanded[w.entity_id] && (
                     <div className="notice">
-                      Added {expanded[w.entity_id].added.length} wallet(s){expanded[w.entity_id].skipped.length ? `, skipped ${expanded[w.entity_id].skipped.length}` : ""}.{" "}
+                      Dodane portfele: {expanded[w.entity_id].added.length}{expanded[w.entity_id].skipped.length ? `, pominięte: ${expanded[w.entity_id].skipped.length}` : ""}.{" "}
                       {expanded[w.entity_id].note}
                     </div>
                   )}
@@ -421,9 +422,9 @@ export default function Leads() {
       </Step>
 
       {state.data && state.data.relationships.length > 0 && (
-        <Step n={5} title="Relationships created in this session" hint="Click through to the Knowledge Graph for evidence and provenance.">
+        <Step n={5} title="Relacje utworzone w tej sesji" hint="Przejdź do grafu wiedzy, aby zobaczyć dowody i pochodzenie danych.">
           <table>
-            <thead><tr><th>Type</th><th>Status</th></tr></thead>
+            <thead><tr><th>Typ</th><th>Status</th></tr></thead>
             <tbody>
               {state.data.relationships.map((r: any) => (
                 <tr key={r.id}><td><code>{r.type}</code></td><td><Badge value={r.status} /></td></tr>

@@ -128,7 +128,7 @@ class TestBitcoin:
         assert p["balance"]["confirmed_sats"] == 60_000 and p["balance"]["btc"] == "0.00060000"
         assert p["tx_count"] == 12 and p["history_truncated"] is True
         assert p["counterparties"][0]["address"] == BTC_B
-        assert "No ownership" in p["note"] or "no ownership" in p["note"].lower()
+        assert "Nie oznacza to własności" in p["note"]
 
     def test_provider_address_not_found_is_honest(self):
         prov, ref = BitcoinEsploraProvider(), _address_ref("bitcoin", BTC_A, BTC_A, None)

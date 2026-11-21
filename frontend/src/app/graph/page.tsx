@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Core, ElementDefinition } from "cytoscape";
 import { api, type GraphEdge, type GraphNode, type Subgraph } from "@/lib/api";
+import { label } from "@/lib/i18n";
 import { Badge, ErrorLine, Page, RelationshipDrawer, short } from "@/components/ui";
 import { explorerLinks, safeHttpUrl } from "@/lib/links";
 
@@ -31,15 +32,15 @@ function NodeLinks({ node }: { node: GraphNode }) {
   if (chain.length === 0 && !page) return null;
   return (
     <div>
-      {page && <div><a href={page} target="_blank" rel="noopener noreferrer">Open page</a> <span className="muted">{short(page, 50)}</span></div>}
+      {page && <div><a href={page} target="_blank" rel="noopener noreferrer">Otwórz stronę</a> <span className="muted">{short(page, 50)}</span></div>}
       {chain.length > 0 && (
         <div className="row">
-          <span className="muted">View on explorer:</span>
+          <span className="muted">Zobacz w eksploratorze:</span>
           {chain.map((l) => <a key={l.url} href={l.url} target="_blank" rel="noopener noreferrer">{l.label}</a>)}
         </div>
       )}
-      {chain.length > 0 && node.network === "evm" && <div className="muted">Network is not determined for this address, so each known chain is offered.</div>}
-      <div className="muted">External links are for your own checking; they are not evidence.</div>
+      {chain.length > 0 && node.network === "evm" && <div className="muted">Sieć nie jest ustalona dla tego adresu, więc pokazano każdy znany łańcuch.</div>}
+      <div className="muted">Linki zewnętrzne służą do własnej weryfikacji i nie są dowodem.</div>
     </div>
   );
 }
@@ -101,10 +102,10 @@ export default function GraphPage() {
         const r = await api<any>("/leads/graph-expand", { method: "POST", body: { entity_id: id } });
         setMsg(
           r.lookup?.unavailable || (r.lookup?.status && r.lookup.status !== "succeeded")
-            ? `On-chain lookup failed: ${r.lookup?.error ?? r.lookup?.status}. Showing only what is already stored.`
-            : `${r.lookup?.reused_prior_run ? "Used the stored on-chain lookup" : "Queried the node"}; ` +
-              `${r.linked_new} new counterpart${r.linked_new === 1 ? "y" : "ies"} linked, ${r.added.length - r.linked_new} already present` +
-              `${r.skipped_over_limit ? `, ${r.skipped_over_limit} more not linked (limit)` : ""}. ${r.note}`,
+            ? `Zapytanie do blockchaina nie powiodło się: ${r.lookup?.error ?? r.lookup?.status}. Pokazano tylko to, co jest już zapisane.`
+            : `${r.lookup?.reused_prior_run ? "Użyto zapisanego zapytania do blockchaina" : "Odpytano węzeł"}; ` +
+              `powiązano nowych kontrahentów: ${r.linked_new}, już obecnych: ${r.added.length - r.linked_new}` +
+              `${r.skipped_over_limit ? `, niepowiązano kolejnych: ${r.skipped_over_limit} (limit)` : ""}. ${r.note}`,
         );
       }
       merge(await api<Subgraph>(`/graph/neighbors/${id}`, { params: { statuses: statusParam, limit: 40 } }));
@@ -164,27 +165,27 @@ export default function GraphPage() {
     try {
       const res = await api<any>("/graph/path", { params: { start: pathStart.id, end: selectedNode.id, statuses: statusParam } });
       cy.elements().removeClass("path");
-      if (!res.found) { setMsg("No path found within the depth limit."); return; }
+      if (!res.found) { setMsg("Nie znaleziono ścieżki w granicach limitu głębokości."); return; }
       const sg = await api<Subgraph>("/graph/view", { params: { roots: res.node_ids.join(","), limit: 100 } });
       merge(sg);
       res.node_ids.forEach((id: string) => cy.getElementById(id).addClass("path"));
       res.edge_ids.forEach((id: string) => cy.getElementById(id).addClass("path"));
-      setMsg(`Path of length ${res.length} highlighted.`);
+      setMsg(`Wyróżniono ścieżkę o długości ${res.length}.`);
     } catch (e) {
       setError(e);
     }
   }
 
   return (
-    <Page title="Knowledge Graph" sub="Bounded view. Double-click a node to expand its neighbours; click an edge to see its evidence.">
+    <Page title="Graf wiedzy" sub="Widok ograniczony. Kliknij dwukrotnie węzeł, aby rozwinąć jego sąsiadów. Kliknij krawędź, aby zobaczyć jej dowody.">
       <div className="row">
-        <input placeholder="Search entity (min 2 chars)…" value={q} onChange={(e) => setQ(e.target.value)} style={{ width: 280 }} />
-        <select multiple size={1} value={statuses} onChange={(e) => setStatuses(Array.from(e.target.selectedOptions).map((o) => o.value))} title="Filter edges by status (ctrl-click for multiple)" style={{ width: 160 }}>
-          {STATUSES.map((s) => <option key={s}>{s}</option>)}
+        <input placeholder="Szukaj encji (min. 2 znaki)…" aria-label="Szukaj encji" spellCheck={false} value={q} onChange={(e) => setQ(e.target.value)} style={{ width: 280 }} />
+        <select multiple size={1} value={statuses} onChange={(e) => setStatuses(Array.from(e.target.selectedOptions).map((o) => o.value))} aria-label="Filtr statusów krawędzi" title="Filtr statusów krawędzi (Ctrl+kliknięcie wybiera kilka)" style={{ width: 160 }}>
+          {STATUSES.map((s) => <option key={s} value={s}>{label(s)}</option>)}
         </select>
-        <button className="ghost" onClick={() => setStatuses([])}>All statuses</button>
-        <span className="muted">{counts.n} nodes, {counts.e} edges</span>
-        <button className="ghost" onClick={() => { cyRef.current?.elements().remove(); setCounts({ n: 0, e: 0 }); setTruncated(false); setSelectedNode(null); }}>Clear</button>
+        <button className="ghost" onClick={() => setStatuses([])}>Wszystkie statusy</button>
+        <span className="muted">węzły: {counts.n}, krawędzie: {counts.e}</span>
+        <button className="ghost" onClick={() => { cyRef.current?.elements().remove(); setCounts({ n: 0, e: 0 }); setTruncated(false); setSelectedNode(null); }}>Wyczyść</button>
       </div>
       {search.data && search.data.length > 0 && (
         <div className="card row">
@@ -195,41 +196,41 @@ export default function GraphPage() {
           ))}
         </div>
       )}
-      {search.data && search.data.length === 0 && q.length >= 2 && <div className="muted">No entity matches “{q}”.</div>}
+      {search.data && search.data.length === 0 && q.length >= 2 && <div className="muted">Żadna encja nie pasuje do „{q}”.</div>}
       <ErrorLine error={error} />
-      {truncated && <div className="warnbox">The view was truncated to stay readable. Expand specific nodes or filter by status to see more.</div>}
+      {truncated && <div className="warnbox">Widok został skrócony dla czytelności. Rozwiń wybrane węzły lub przefiltruj po statusie, aby zobaczyć więcej.</div>}
       {msg && <div className="notice">{msg}</div>}
       <div className="graphwrap" ref={box} />
-      {counts.n === 0 && <div className="muted">Search for an entity or open a seed from Discovery to populate the graph.</div>}
+      {counts.n === 0 && <div className="muted">Wyszukaj encję lub otwórz element początkowy z sekcji Rozpoznanie, aby wypełnić graf.</div>}
       <div className="legend" style={{ marginTop: 8 }}>
         {([
-          ["verified on-chain (thick, solid)", "#17724a", ""],
-          ["corroborated (solid)", "#0f6e7d", ""],
-          ["supported (thin, solid)", "#3d5f82", ""],
-          ["proposed, an unverified lead (dashed)", "#5b6773", "dashed"],
-          ["contradicted (thick, solid)", "#b3261e", ""],
-          ["historical (dotted)", "#94590a", "dotted"],
+          ["zweryfikowane w blockchainie (gruba, ciągła)", "#17724a", ""],
+          ["potwierdzone niezależnie (ciągła)", "#0f6e7d", ""],
+          ["poparte dowodem (cienka, ciągła)", "#3d5f82", ""],
+          ["wstępne, niezweryfikowany trop (kreskowana)", "#5b6773", "dashed"],
+          ["sprzeczne (gruba, ciągła)", "#b3261e", ""],
+          ["historyczne (kropkowana)", "#94590a", "dotted"],
         ] as const).map(([label, c, style]) => (
           <span key={label} style={{ color: c }}><i className={style} /><span style={{ color: "var(--muted)" }}>{label}</span></span>
         ))}
-        <span>Node border: green = on-chain verified, dashed amber = unresolved or ambiguous.</span>
+        <span>Obramowanie węzła: zielone = zweryfikowany w blockchainie, kreskowane bursztynowe = nierozpoznany lub niejednoznaczny.</span>
       </div>
       {selectedNode && (
-        <aside className="drawer">
-          <div className="row"><h2 className="grow">{selectedNode.label}</h2><button type="button" className="ghost sm" onClick={() => setSelectedNode(null)}>Close</button></div>
+        <aside className="drawer" role="dialog" aria-label="Szczegóły węzła">
+          <div className="row"><h2 className="grow">{selectedNode.label}</h2><button type="button" className="ghost sm" onClick={() => setSelectedNode(null)}>Zamknij</button></div>
           <div className="row"><Badge value={selectedNode.entity_type} /><Badge value={selectedNode.verified ? "verified" : "unverified"} /><Badge value={selectedNode.resolution_status} /></div>
           <p className="mono" translate="no">{selectedNode.canonical_identifier}</p>
           <NodeLinks node={selectedNode} />
           <div className="row">
-            <button disabled={busy} onClick={() => expand(selectedNode.id, selectedNode.entity_type)}>{busy ? "Expanding…" : "Expand neighbours"}</button>
-            <a href={`/entities?id=${selectedNode.id}`}>Open profile</a>
+            <button disabled={busy} onClick={() => expand(selectedNode.id, selectedNode.entity_type)}>{busy ? "Rozwijanie…" : "Rozwiń sąsiadów"}</button>
+            <a href={`/entities?id=${selectedNode.id}`}>Otwórz profil</a>
           </div>
-          <h3>Shortest path</h3>
+          <h3>Najkrótsza ścieżka</h3>
           <div className="row">
-            <button className="ghost" onClick={() => setPathStart(selectedNode)}>Set as path start</button>
-            <button className="ghost" onClick={findPath} disabled={!pathStart || pathStart.id === selectedNode.id}>Find path from start to here</button>
+            <button className="ghost" onClick={() => setPathStart(selectedNode)}>Ustaw jako początek ścieżki</button>
+            <button className="ghost" onClick={findPath} disabled={!pathStart || pathStart.id === selectedNode.id}>Znajdź ścieżkę od początku do tego węzła</button>
           </div>
-          <div className="muted">{pathStart ? `Start: ${short(pathStart.label, 36)}` : "Pick a start node, then select the end node."}</div>
+          <div className="muted">{pathStart ? `Początek: ${short(pathStart.label, 36)}` : "Wybierz węzeł początkowy, a następnie zaznacz węzeł końcowy."}</div>
         </aside>
       )}
       {edgeId && <RelationshipDrawer id={edgeId} onClose={() => setEdgeId(null)} />}

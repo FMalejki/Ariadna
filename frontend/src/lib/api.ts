@@ -90,7 +90,7 @@ export async function downloadArtifact(id: string): Promise<void> {
   const res = await fetch(`${PREFIX}/evidence/artifacts/${id}/content`, {
     headers: session ? { Authorization: `Bearer ${session.token}` } : {},
   });
-  if (!res.ok) throw new ApiError(res.status, "artifact unavailable");
+  if (!res.ok) throw new ApiError(res.status, "artefakt jest niedostępny");
   const blob = await res.blob();
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");

@@ -4,6 +4,9 @@ import { useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { api } from "@/lib/api";
 import { safeHttpUrl } from "@/lib/links";
+import { label, pl, when } from "@/lib/i18n";
+
+export { when };
 
 /** Map any backend status string to a badge colour class. Unknown values render as neutral. */
 const BADGE: Record<string, string> = {
@@ -18,26 +21,28 @@ const BADGE: Record<string, string> = {
 export function Badge({ value, title }: { value: string | null | undefined; title?: string }) {
   if (!value) return null;
   return (
-    <span className={`badge ${BADGE[value.toLowerCase()] ?? ""}`} title={title}>
-      {value.replace(/_/g, " ")}
+    <span className={`badge ${BADGE[value.toLowerCase()] ?? ""}`} title={title ?? `wartość: ${value}`}>
+      {label(value)}
     </span>
   );
 }
 
 /** Mention repeatability as WORDS only (never a percentage or a colour scale that reads as "verified"). Always annotated. */
+const LEVEL_PL: Record<string, string> = { low: "niska", medium: "średnia", high: "wysoka" };
 export function Repeatability({ r }: { r: { distinct_urls: number; pages_with_address: number; level: string | null; disclaimer: string } | null | undefined }) {
   if (!r) return null;
+  const pages = (n: number) => `${n} ${pl(n, "strona", "strony", "stron")}`;
   return (
     <span className="muted" title={r.disclaimer}>
       {r.level ? (
         <>
-          mention repeatability: <b>{r.level}</b> ({r.distinct_urls} distinct page{r.distinct_urls === 1 ? "" : "s"} with the name/login next to this address
-          {r.pages_with_address > r.distinct_urls ? `, ${r.pages_with_address} pages show the address` : ""})
+          powtarzalność wzmianki: <b>{LEVEL_PL[r.level] ?? r.level}</b> ({pages(r.distinct_urls)} z imieniem i nazwiskiem lub loginem obok tego adresu
+          {r.pages_with_address > r.distinct_urls ? `, adres widoczny na ${pages(r.pages_with_address)}` : ""})
         </>
       ) : (
-        <>no page places the name/login next to this address ({r.pages_with_address} page{r.pages_with_address === 1 ? "" : "s"} show the address)</>
+        <>żadna strona nie umieszcza imienia i nazwiska ani loginu obok tego adresu (adres widoczny na: {pages(r.pages_with_address)})</>
       )}
-      {" "}<i>This is not ownership. Different URLs may copy the same content.</i>
+      {" "}<i>To nie jest dowód własności. Różne adresy URL mogą kopiować tę samą treść.</i>
     </span>
   );
 }
@@ -66,7 +71,7 @@ export function Drawer({ onClose, title, children }: { onClose: () => void; titl
     <aside className="drawer" role="dialog" aria-label={title} onKeyDown={(e) => { if (e.key === "Escape") onClose(); }}>
       <div className="row">
         <h2 className="grow">{title}</h2>
-        <button type="button" className="ghost sm" onClick={onClose}>Close</button>
+        <button type="button" className="ghost sm" onClick={onClose}>Zamknij</button>
       </div>
       {children}
     </aside>
@@ -78,17 +83,13 @@ export function short(s: string | null | undefined, n = 40): string {
   return s.length > n ? `${s.slice(0, n - 1)}…` : s;
 }
 
-export function when(s: string | null | undefined): string {
-  return s ? s.replace("T", " ").slice(0, 16) : "—";
-}
-
 /** Edge detail: answers “why does the system believe this?” with every evidence item and its provenance. */
 export function RelationshipDrawer({ id, onClose }: { id: string; onClose: () => void }) {
   const q = useQuery({ queryKey: ["relationship", id], queryFn: () => api<any>(`/relationships/${id}`) });
   const r = q.data;
   return (
-    <Drawer onClose={onClose} title="Relationship evidence">
-      {q.isLoading && <div className="muted">Loading…</div>}
+    <Drawer onClose={onClose} title="Dowody dla relacji">
+      {q.isLoading && <div className="muted">Wczytywanie…</div>}
       <ErrorLine error={q.error} />
       {r && (
         <>
@@ -99,40 +100,40 @@ export function RelationshipDrawer({ id, onClose }: { id: string; onClose: () =>
           </div>
           <p>
             <b>{r.source_entity?.display_name}</b> <span className="muted" translate="no">({r.source_entity?.canonical_identifier})</span>
-            <br />linked to <b>{r.target_entity?.display_name}</b> <span className="muted" translate="no">({r.target_entity?.canonical_identifier})</span>
+            <br />powiązane z <b>{r.target_entity?.display_name}</b> <span className="muted" translate="no">({r.target_entity?.canonical_identifier})</span>
           </p>
           {r.status === "proposed" && (
-            <div className="warnbox">Proposed only: a single unverified lead. Not a confirmed fact.</div>
+            <div className="warnbox">Relacja tylko wstępna: pojedynczy niezweryfikowany trop, a nie potwierdzony fakt.</div>
           )}
-          {r.has_contradiction && <div className="warnbox">Sources disagree about this relationship.</div>}
-          {r.is_stale && <div className="warnbox">All supporting evidence is from an older version of its source.</div>}
+          {r.has_contradiction && <div className="warnbox">Źródła są ze sobą sprzeczne co do tej relacji.</div>}
+          {r.is_stale && <div className="warnbox">Wszystkie dowody pochodzą ze starszej wersji źródła.</div>}
           <div className="muted">
-            First observed {when(r.first_observed_at)}, last observed {when(r.last_observed_at)}, method {r.resolution_method ?? "—"}
+            Pierwsza obserwacja: {when(r.first_observed_at)}, ostatnia: {when(r.last_observed_at)}, metoda: {r.resolution_method ?? "—"}
           </div>
-          <h3>Evidence ({r.evidence.length})</h3>
+          <h3>Dowody ({r.evidence.length})</h3>
           {r.evidence.map((e: any) => (
             <div key={e.id} className={`ev ${e.support_status === "contradicts" ? "contra" : ""}`}>
               <div className="row">
                 <Badge value={e.support_status} />
                 <code>{e.evidence_type}</code>
-                <span className="muted">strength {e.evidence_strength ?? "—"}</span>
-                {e.stale && <Badge value="historical" title="superseded by a newer observation" />}
+                <span className="muted">siła dowodu: {e.evidence_strength ?? "—"}</span>
+                {e.stale && <Badge value="historical" title="zastąpione nowszą obserwacją" />}
               </div>
               <div>{e.explanation}</div>
               <div className="muted">
-                Source {e.observation.source ?? "unknown"}, observation {e.observation.seq}, observed {when(e.observation.observed_at)}.{" "}
-                Provider {e.provider ? `${e.provider.name}@${e.provider.version}` : "—"}, reliability {e.source_reliability}.
+                Źródło: {e.observation.source ?? "nieznane"}, obserwacja nr {e.observation.seq}, zaobserwowano {when(e.observation.observed_at)}.{" "}
+                Dostawca: {e.provider ? `${e.provider.name}@${e.provider.version}` : "—"}, wiarygodność źródła: {e.source_reliability}.
               </div>
               {e.observation.source_url && (
                 <div className="mono" translate="no">
                   {short(e.observation.source_url, 70)}{" "}
                   {safeHttpUrl(e.observation.source_url) && (
-                    <a href={safeHttpUrl(e.observation.source_url)!} target="_blank" rel="noopener noreferrer">Open source page</a>
+                    <a href={safeHttpUrl(e.observation.source_url)!} target="_blank" rel="noopener noreferrer">Otwórz stronę źródłową</a>
                   )}
                 </div>
               )}
-              <div className="muted">basis: {e.confidence_basis}</div>
-              {e.observation.raw_artifact_id && <div className="muted">raw artifact {short(e.observation.raw_artifact_id, 12)} (see Evidence Center)</div>}
+              <div className="muted">podstawa: {e.confidence_basis}</div>
+              {e.observation.raw_artifact_id && <div className="muted">surowy artefakt {short(e.observation.raw_artifact_id, 12)} (zob. Centrum dowodów)</div>}
             </div>
           ))}
         </>

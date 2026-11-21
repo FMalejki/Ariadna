@@ -6,14 +6,14 @@ import Shell from "@/components/Shell";
 
 export const metadata: Metadata = {
   title: { default: "Ariadna", template: "%s | Ariadna" },
-  description: "Ariadna: a persistent OSINT knowledge graph where every link shows its evidence.",
+  description: "Ariadna: trwały graf wiedzy OSINT, w którym każde powiązanie pokazuje swoje dowody.",
 };
 
 export const viewport: Viewport = { themeColor: "#e8ecee", colorScheme: "light" };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="pl">
       <body>
         <Providers>
           <Shell>{children}</Shell>

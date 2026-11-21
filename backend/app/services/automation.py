@@ -40,11 +40,11 @@ from app.services.leads import LeadError, MAX_EXPAND
 
 STAGES = ("A", "B", "C", "D", "E")
 STAGE_INFO = {
-    "A": "Sherlock: login -> profile URLs (username-string matches, not identity)",
-    "B": "Web search -> fetch pages -> address candidates",
-    "C": "Track addresses with the full name or login in their context (+-120 chars, same page)",
-    "D": "On-chain lookup of the wallets tracked in this run",
-    "E": "Expand one step from those wallets (<= 20 counterparties each)",
+    "A": "Sherlock: login → adresy profili (dopasowania ciągu znaków nazwy użytkownika, a nie tożsamość)",
+    "B": "Wyszukiwanie w sieci → pobranie stron → kandydaci na adresy",
+    "C": "Śledzenie adresów, przy których w kontekście (±120 znaków, ta sama strona) występuje imię i nazwisko lub login",
+    "D": "Wyszukanie w blockchainie portfeli śledzonych w tym uruchomieniu",
+    "E": "Rozwinięcie o jeden krok od tych portfeli (do 20 kontrahentów każdy)",
 }
 DEPENDS = {"C": "B", "D": "C", "E": "D"}
 DEFAULT_LIMITS = {"max_queries": 6, "max_pages": 15, "max_addresses": 30, "max_seconds": 600}
@@ -53,7 +53,7 @@ CHUNK_SECONDS = 20  # time budget of one worker advance; the run continues on th
 FINAL = ("completed", "stopped_by_limit", "aborted", "failed")
 LOG_CAP = 600
 POLICY_MARKERS = ("no-scrape list", "robots.txt", "SSRF", "redirect to a disallowed target", "access refused by the site")
-CONTEXT_NOTE = "A mention on a page is not ownership; the rule only decides which candidates deserve a closer look."
+CONTEXT_NOTE = "Wzmianka na stronie to nie własność. Reguła tylko wskazuje kandydatów wartych bliższego przyjrzenia się."
 
 
 class _Limit(Exception):

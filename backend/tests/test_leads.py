@@ -136,7 +136,7 @@ def test_full_flow_search_fetch_track_onchain_expand(client, admin_headers):
     assert client.post(f"{P}/track", json={**base, "address": EVM_B, "rationale": "long enough rationale"}, headers=admin_headers).status_code == 404
 
     t = client.post(f"{P}/track", json={**base, "rationale": "Ad names the seller and quotes this payment address"}, headers=admin_headers).json()
-    assert t["relationship_type"] == "PAGE_REFERENCES_ENTITY" and "does not establish" in t["note"]
+    assert t["relationship_type"] == "PAGE_REFERENCES_ENTITY" and "Nie ustala ona" in t["note"]
     with get_session_factory()() as s:
         types = {r.relationship_type for r in s.scalars(select(Relationship))}
         assert types == {"PAGE_REFERENCES_ENTITY"}
@@ -265,7 +265,7 @@ def test_graph_expand_without_onchain_data_adds_nothing_and_says_so(client, admi
     t = client.post(f"{P}/track", json={"investigation_id": inv, "fetch_run_id": f["tool_run_id"], "network": "solana", "address": SOL, "rationale": "payment address quoted in the ad"}, headers=admin_headers).json()
     before = _counts()[:3]
     r = client.post(f"{P}/graph-expand", json={"entity_id": t["wallet_entity_id"]}, headers=admin_headers).json()
-    assert r["added"] == [] and r["lookup"]["unavailable"] is True and "nothing was added" in r["note"]
+    assert r["added"] == [] and r["lookup"]["unavailable"] is True and "nic nie dodano" in r["note"]
     assert _counts()[:3] == before
 
 

@@ -232,7 +232,7 @@ def profile(session: Session, entity_id: str, as_of: datetime | None = None) -> 
         "pending_discovery_tasks": [{"id": t.id, "provider": t.provider_name, "status": t.status, "target": t.target_identifier, "depth": t.depth} for t in pending_tasks],
         "timeline": timeline(session, ent.id, as_of, 100),
         "last_update": max([o["retrieved_at"] for o in observations], default=None),
-        "evidence_notice": "Observations are what a source stated or a provider returned; only entries under verified_onchain_events were checked deterministically against a blockchain provider.",
+        "evidence_notice": "Obserwacje to to, co podało źródło lub zwrócił dostawca. Tylko wpisy w verified_onchain_events zostały sprawdzone deterministycznie u dostawcy blockchaina.",
     }
 
 
