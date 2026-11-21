@@ -1,0 +1,54 @@
+# Redis is provisioned for the planned queue backend; no code uses it today (ADR-0006).
+# MinIO was removed: the image minio/minio is not pullable from Docker Hub and nothing uses it (ADR-0007).
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-osint}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-osint}
+      POSTGRES_DB: ${POSTGRES_DB:-osint}
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-osint}"]
+      interval: 5s
+      retries: 10
+
+  redis:
+    image: redis:7
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+      args:
+        PYTHON_IMAGE: ${PYTHON_IMAGE:-python:3.12-slim}
+    env_file: .env
+    depends_on:
+      postgres: { condition: service_healthy }
+    volumes: [artifacts:/data/artifacts]
+    ports: ["8000:8000"]
+
+  worker:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+      args:
+        PYTHON_IMAGE: ${PYTHON_IMAGE:-python:3.12-slim}
+    command: ["python", "-m", "app.worker"]
+    restart: on-failure  # worker may start before the backend finished migrating
+    env_file: .env
+    depends_on: [backend]
+    volumes: [artifacts:/data/artifacts]
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000}
+    depends_on: [backend]
+    ports: ["3000:3000"]
+
+volumes:
+  pgdata:
+  artifacts:

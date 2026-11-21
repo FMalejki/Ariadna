@@ -1,0 +1,46 @@
+# Secrets — never commit (use .env.example for the variable names)
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+build/
+dist/
+
+# Local data / evidence artifacts
+backend/*.db
+backend/*.sqlite3
+backend/artifacts/
+artifacts/
+*.sqlite
+*.sqlite3
+
+# Node / Next.js
+node_modules/
+.next/
+out/
+*.tsbuildinfo
+npm-debug.log*
+
+# Docker local overrides
+docker-compose.override.yml
+
+# Editors / OS
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# Bob scratch
+.bob/
+PROMPT.md
