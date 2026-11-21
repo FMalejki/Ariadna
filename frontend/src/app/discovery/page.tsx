@@ -12,6 +12,8 @@ export default function Discovery() {
   const { can } = useAuth();
   const [name, setName] = useState("");
   const [seed, setSeed] = useState("");
+  const [fullName, setFullName] = useState("");
+  const [login, setLogin] = useState("");
   const [depth, setDepth] = useState(1);
   const [runNow, setRunNow] = useState(true);
   const [filter, setFilter] = useState("");
@@ -26,8 +28,19 @@ export default function Discovery() {
     qc.invalidateQueries({ queryKey: ["tasks"] });
     qc.invalidateQueries({ queryKey: ["overview"] });
   };
+  const hasInput = Boolean(seed.trim() || fullName.trim() || login.trim());
   const start = useMutation({
-    mutationFn: () => api<any>("/investigations", { body: { name, seed, scope: { max_depth: depth }, run_now: runNow } }),
+    mutationFn: () =>
+      api<any>("/investigations", {
+        body: {
+          name: name.trim() || login.trim() || fullName.trim() || seed.trim().slice(0, 80),
+          seed: seed.trim() || null,
+          full_name: fullName.trim() || null,
+          login: login.trim() || null,
+          scope: { max_depth: depth },
+          run_now: runNow,
+        },
+      }),
     onSuccess: (r) => { setCreated(r); refresh(); },
   });
   const decide = useMutation({
@@ -38,23 +51,36 @@ export default function Discovery() {
   const run = useMutation({ mutationFn: () => api("/discovery/run", { body: { limit: 25 } }), onSuccess: refresh });
 
   return (
-    <Page title="Discovery" sub="Start from one seed. Each result may propose follow-up tasks; sensitive categories wait for approval.">
+    <Page title="Discovery" sub="Start from a full name, a login or a seed (at least one). Each result may propose follow-up tasks; sensitive categories wait for approval.">
       <div className="card">
         <h2>New investigation</h2>
         <div className="row">
-          <input placeholder="Investigation name" value={name} onChange={(e) => setName(e.target.value)} />
-          <input className="grow" placeholder="Seed: URL, @handle, wallet address, tx hash or domain" value={seed} onChange={(e) => setSeed(e.target.value)} />
+          <input placeholder="Investigation name (optional)" value={name} onChange={(e) => setName(e.target.value)} />
+          <input placeholder="Imię i nazwisko" value={fullName} onChange={(e) => setFullName(e.target.value)} />
+          <input placeholder="Login" value={login} onChange={(e) => setLogin(e.target.value)} />
+        </div>
+        <div className="row">
+          <input className="grow" placeholder="Seed (optional): URL, @handle, wallet address, tx hash or domain" value={seed} onChange={(e) => setSeed(e.target.value)} />
           <label>depth <input type="number" min={0} max={5} value={depth} onChange={(e) => setDepth(Number(e.target.value))} style={{ width: 60 }} /></label>
           <label><input type="checkbox" checked={runNow} onChange={(e) => setRunNow(e.target.checked)} /> run approved tasks now</label>
-          <button disabled={!can("analyst") || !name || !seed || start.isPending} onClick={() => start.mutate()}>Start</button>
+          <button disabled={!can("analyst") || !hasInput || start.isPending} onClick={() => start.mutate()}>Start</button>
+        </div>
+        <div className="muted">
+          Login: Sherlock checks many sites (no platform is assumed); a hit is a username-string match, not proof of identity.
+          The full name creates no entity; it only parameterises the investigation and its searches.
         </div>
         {!can("analyst") && <div className="muted">Viewer role cannot start investigations.</div>}
         <ErrorLine error={start.error} />
         {created && (
           <div className="notice">
-            Seed resolved to <code>{created.seed.canonical_identifier}</code> ({created.seed.entity_type}). {created.tasks.length} task(s) planned, {created.executed.length} executed.{" "}
+            {created.seed ? (
+              <>Seed resolved to <code>{created.seed.canonical_identifier}</code> ({created.seed.entity_type}). </>
+            ) : (
+              <>No entity created (full name only: it is a parameter of the investigation). </>
+            )}
+            {created.tasks.length} task(s) planned, {created.executed.length} executed.{" "}
             <Link href={`/investigations?id=${created.investigation.id}`}>Open investigation</Link>
-            {created.seed.entity_id && <> · <Link href={`/graph?root=${created.seed.entity_id}`}>View in graph</Link></>}
+            {created.seed?.entity_id && <> · <Link href={`/graph?root=${created.seed.entity_id}`}>View in graph</Link></>}
           </div>
         )}
       </div>

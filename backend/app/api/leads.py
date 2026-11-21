@@ -112,10 +112,23 @@ def onchain(body: OnchainIn, session: SessionDep, user: User = Depends(analyst))
     return _guard(svc.lookup_onchain, session, inv_id=body.investigation_id, entity_id=body.entity_id, refresh=body.refresh, actor=user.username)
 
 
+class LoadMoreIn(BaseModel):
+    investigation_id: str
+    entity_id: str
+    lookup_run_id: str  # the latest history page the analyst has seen; the next cursor is read from its stored observation
+
+
+@router.post("/onchain/more")
+def onchain_more(body: LoadMoreIn, session: SessionDep, user: User = Depends(analyst)):
+    """Load the next page of a wallet's transaction history (a separate, audited provider run)."""
+    return _guard(svc.load_more, session, inv_id=body.investigation_id, entity_id=body.entity_id, lookup_run_id=body.lookup_run_id, actor=user.username)
+
+
 class CounterpartyIn(BaseModel):
     network: str
     address: str
     direction: str
+    lookup_run_id: str | None = None  # the history page this counterparty was seen in (defaults to the request's run)
 
 
 class ExpandIn(BaseModel):
@@ -131,3 +144,13 @@ def expand(body: ExpandIn, session: SessionDep, user: User = Depends(analyst)):
         svc.expand, session, inv_id=body.investigation_id, entity_id=body.entity_id, lookup_run_id=body.lookup_run_id,
         counterparties=[c.model_dump() for c in body.counterparties], actor=user.username,
     )
+
+
+class GraphExpandIn(BaseModel):
+    entity_id: str
+
+
+@router.post("/graph-expand")
+def graph_expand(body: GraphExpandIn, session: SessionDep, user: User = Depends(analyst)):
+    """Graph "expand neighbours" for a wallet: reuse the stored lookup (or run one), link top counterparties, one step."""
+    return _guard(svc.expand_wallet, session, entity_id=body.entity_id, actor=user.username)

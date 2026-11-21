@@ -581,6 +581,29 @@ def find_address_spans(text: str) -> list[AddressSpan]:
     return spans
 
 
+# Same rule as the Sherlock adapter's USERNAME_RE: 3-32 chars, no leading '-' or '.' (also blocks option-like strings).
+_LOGIN_RE = re.compile(r"^[A-Za-z0-9_.\-]{3,32}$")
+
+
+def classify_username(raw: str) -> Reference:
+    """Classify a platform-less login. Sherlock checks many sites, so no platform and no URL are assumed.
+
+    The result is a candidate handle, not an identity. Raises InvalidReference with a clear reason.
+    """
+    login = raw.strip()
+    if login.startswith("@"):
+        login = login[1:]
+    if not _LOGIN_RE.match(login) or login.startswith(("-", ".")):
+        raise InvalidReference(
+            "invalid login: use 3-32 characters (letters, digits, '_', '.', '-'), not starting with '-' or '.'"
+        )
+    h = login.lower()
+    return Reference(
+        EntityType.SOCIAL_ACCOUNT.value, f"username:{h}", login, SourceType.SOCIAL_ACCOUNT.value, raw,
+        attrs={"handle": h},
+    )
+
+
 def classify_seed(raw: str, platform_hint: str | None = None) -> Reference:
     """Classify an analyst-supplied seed (URL, address, tx hash, @handle). Raises InvalidReference."""
     raw = raw.strip()

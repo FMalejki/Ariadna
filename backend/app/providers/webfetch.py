@@ -56,7 +56,7 @@ ROBOTS_MAX_BYTES = 500_000
 _REDIRECT = {301, 302, 303, 307, 308}
 _BLOCK_TAGS = {
     "p", "div", "br", "li", "ul", "ol", "tr", "td", "th", "table", "section", "article", "header", "footer", "h1", "h2",
-    "h3", "h4", "h5", "h6", "pre", "blockquote", "main", "aside", "nav", "dd", "dt", "form", "address",
+    "h3", "h4", "h5", "h6", "pre", "blockquote", "main", "aside", "nav", "dd", "dt", "form", "address", "title", "head",
 }
 
 
@@ -227,13 +227,26 @@ def _fallback_text(raw: bytes) -> str:
     return re.sub(r"[ \t\r\f\v]+", " ", text)
 
 
-def html_to_text(raw: bytes) -> tuple[str | None, str, list[str]]:
+def _charset(header_charset: str | None, raw: bytes) -> str | None:
+    """Declared charset if any; else UTF-8 when the bytes are valid UTF-8 (lxml would otherwise guess Latin-1 and
+    turn Polish letters into mojibake, which also breaks name matching); else None (let lxml decide)."""
+    if header_charset:
+        return header_charset
+    try:
+        raw.decode("utf-8")
+        return "utf-8"
+    except UnicodeDecodeError:
+        return None
+
+
+def html_to_text(raw: bytes, header_charset: str | None = None) -> tuple[str | None, str, list[str]]:
     """(title, visible text, absolute http(s) link targets). Never executes anything."""
     from lxml import etree
     from lxml import html as lhtml
 
+    enc = _charset(header_charset, raw)
     try:
-        doc = lhtml.document_fromstring(raw)
+        doc = lhtml.document_fromstring(raw, parser=lhtml.HTMLParser(encoding=enc) if enc else None)
     except (etree.ParserError, ValueError, etree.XMLSyntaxError):
         return None, _fallback_text(raw), []
     title_el = doc.find(".//title")
@@ -300,7 +313,11 @@ class WebFetchProvider(IntelligenceProvider):
         if ctype == "text/plain":
             title, text, hrefs = None, resp.body.decode("utf-8", "replace"), []
         else:
-            title, text, hrefs = html_to_text(resp.body)
+            m = re.search(r"charset=([\w.:-]+)", resp.headers.get("content-type", ""), re.I)
+            try:
+                title, text, hrefs = html_to_text(resp.body, m.group(1) if m else None)
+            except LookupError:  # unknown charset name in the header
+                title, text, hrefs = html_to_text(resp.body)
         text = text[:MAX_TEXT_CHARS]
         hrefs = [h for h in hrefs[:2000]]
         candidates = extract_address_candidates(text + ("\n" + "\n".join(hrefs) if hrefs else ""))

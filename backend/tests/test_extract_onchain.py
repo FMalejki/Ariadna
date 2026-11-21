@@ -185,3 +185,74 @@ class TestHistory:
     def test_solana_history_bad_shape_is_an_error_not_a_crash(self):
         with pytest.raises(ProviderError):
             solana_history(lambda *a: {"value": 1}, None, "x", SOL_ADDR, 10)
+
+
+# ------------------------------------------------------------------------------------------ history pagination cursors
+class TestPagination:
+    def test_blockscout_cursor_is_sent_back_urlencoded_and_skips_the_balance_lookup(self):
+        seen = []
+
+        def handler(req):
+            seen.append(str(req.url))
+            return httpx.Response(200, json={"items": [], "next_page_params": None})
+
+        out = blockscout_history(httpx.Client(transport=httpx.MockTransport(handler)), "https://scout.example.org/api", EVM_A, 10, {"block_number": 5, "hash": "0xab", "index": None})
+        assert len(seen) == 1 and "block_number=5" in seen[0] and "hash=0xab" in seen[0] and "index=" in seen[0]
+        assert out["found"] is True and "balance_wei" not in out and out["next_cursor"] is None
+
+    def test_blockscout_next_cursor_only_when_the_page_was_consumed(self):
+        items = [{"hash": f"0x{i}", "from": {"hash": EVM_A}, "to": {"hash": EVM_B}} for i in range(3)]
+        h = lambda r: httpx.Response(200, json={"items": items, "next_page_params": {"p": 1}} if r.url.path.endswith("/transactions") else {"coin_balance": "0"})  # noqa: E731
+        c = httpx.Client(transport=httpx.MockTransport(h))
+        assert blockscout_history(c, "https://scout.example.org/api", EVM_A, 10)["next_cursor"] == {"p": 1}
+        # limit smaller than the page: the unseen rest of the page would be skipped, so no cursor is offered
+        assert blockscout_history(c, "https://scout.example.org/api", EVM_A, 2)["next_cursor"] is None
+
+    def test_blockscout_rejects_a_malformed_cursor(self):
+        c = httpx.Client(transport=httpx.MockTransport(lambda r: httpx.Response(200, json={})))
+        for bad in ({}, "x", {f"k{i}": 1 for i in range(13)}):
+            with pytest.raises(ProviderError):
+                blockscout_history(c, "https://scout.example.org/api", EVM_A, 5, bad)
+
+    def test_solana_before_cursor_and_next_cursor(self):
+        sig = "5" * 88
+        calls = []
+
+        def rpc(client, url, method, params):
+            calls.append((method, params))
+            if method == "getSignaturesForAddress":
+                return [{"signature": sig, "slot": 1, "blockTime": 1, "err": {"x": 1}}]
+            raise AssertionError(method)
+
+        out = solana_history(rpc, None, "x", SOL_ADDR, 1, before="6" * 88)
+        assert calls[0][1][1] == {"limit": 1, "before": "6" * 88} and out["next_cursor"] == {"before": sig}
+        assert solana_history(rpc, None, "x", SOL_ADDR, 5)["next_cursor"] is None  # fewer than `limit` -> end of history
+        with pytest.raises(ProviderError):
+            solana_history(rpc, None, "x", SOL_ADDR, 1, before="not-a-signature")
+
+    def test_bitcoin_page_uses_chain_cursor_and_unconfirmed_tx_cannot_anchor_a_page(self):
+        t1 = "a" * 64
+        confirmed = _btc_tx(t1, [(BTC_B, 60_000)], [(BTC_A, 50_000)])
+        confirmed["status"] = {"confirmed": True, "block_height": 1, "block_time": 1_700_000_000}
+        from app.providers.onchain import btc_next_cursor
+
+        assert btc_next_cursor([confirmed], 10) == {"after": t1}
+        unconfirmed = {**confirmed, "status": {"confirmed": False}}
+        assert btc_next_cursor([unconfirmed], 10) is None and btc_next_cursor([], 10) is None
+
+        paths = []
+
+        def handler(req):
+            paths.append(req.url.path)
+            return httpx.Response(200, json=[confirmed])
+
+        ctx = ProviderContext(settings=Settings(btc_esplora_url="https://esplora.example.org/api", onchain_history_limit=1),
+                              http=httpx.Client(transport=httpx.MockTransport(handler)))
+        prov, ref = BitcoinEsploraProvider(), _address_ref("bitcoin", BTC_A, BTC_A, None)
+        data = ProviderInput(reference=ref, payload={"cursor": {"after": t1}})
+        raw = prov.execute(data, ctx)
+        (obs,) = prov.normalize_result(raw, data, ctx)
+        assert paths == [f"/api/address/{BTC_A}/txs/chain/{t1}"] and obs.payload["page"] is True and obs.payload["next_cursor"] == {"after": t1}
+        assert obs.source.canonical_key.startswith(ref.canonical_id + "#page:")
+        with pytest.raises(ProviderError):
+            prov.execute(ProviderInput(reference=ref, payload={"cursor": {"after": "../x"}}), ctx)

@@ -44,3 +44,4 @@ docker-compose.override.yml
 # Bob scratch
 .bob/
 PROMPT.md
+lead-automation-plan.md

@@ -3,6 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { api } from "@/lib/api";
+import { safeHttpUrl } from "@/lib/links";
 
 /** Map any backend status string to a badge colour class. Unknown values render as neutral. */
 const BADGE: Record<string, string> = {
@@ -10,7 +11,7 @@ const BADGE: Record<string, string> = {
   contradicted: "b-contradicted", rejected: "b-rejected", historical: "b-historical", redacted: "b-redacted",
   pending: "b-pending", pending_approval: "b-pending", unverified: "b-unverified", unreviewed: "b-unverified",
   completed: "b-ok", succeeded: "b-ok", success: "b-ok", timed_out: "b-bad", healthy: "b-ok", ok: "b-ok", degraded: "b-pending", approved: "b-ok", confirmed: "b-ok", reused: "b-info", queued: "b-info", running: "b-info",
-  failed: "b-bad", dead: "b-bad", error: "b-bad", unavailable: "b-bad", skipped: "b-unverified", placeholder: "b-pending",
+  failed: "b-bad", dead: "b-bad", error: "b-bad", unavailable: "b-bad", skipped: "b-unverified", skipped_policy: "b-unverified", stopped_by_limit: "b-pending", aborted: "b-unverified", placeholder: "b-pending",
   implemented: "b-ok", partial: "b-pending", active: "b-ok",
 };
 
@@ -19,6 +20,24 @@ export function Badge({ value, title }: { value: string | null | undefined; titl
   return (
     <span className={`badge ${BADGE[value.toLowerCase()] ?? ""}`} title={title}>
       {value.replace(/_/g, " ")}
+    </span>
+  );
+}
+
+/** Mention repeatability as WORDS only (never a percentage or a colour scale that reads as "verified"). Always annotated. */
+export function Repeatability({ r }: { r: { distinct_urls: number; pages_with_address: number; level: string | null; disclaimer: string } | null | undefined }) {
+  if (!r) return null;
+  return (
+    <span className="muted" title={r.disclaimer}>
+      {r.level ? (
+        <>
+          mention repeatability: <b>{r.level}</b> ({r.distinct_urls} distinct page{r.distinct_urls === 1 ? "" : "s"} with the name/login next to this address
+          {r.pages_with_address > r.distinct_urls ? `, ${r.pages_with_address} pages show the address` : ""})
+        </>
+      ) : (
+        <>no page places the name/login next to this address ({r.pages_with_address} page{r.pages_with_address === 1 ? "" : "s"} show the address)</>
+      )}
+      {" · "}<i>not ownership; different URLs may copy the same content</i>
     </span>
   );
 }
@@ -104,7 +123,14 @@ export function RelationshipDrawer({ id, onClose }: { id: string; onClose: () =>
                 {e.observation.source ?? "source"} · seq {e.observation.seq} · observed {when(e.observation.observed_at)} ·{" "}
                 provider {e.provider ? `${e.provider.name}@${e.provider.version}` : "—"} · reliability {e.source_reliability}
               </div>
-              {e.observation.source_url && <div className="mono">{short(e.observation.source_url, 70)}</div>}
+              {e.observation.source_url && (
+                <div className="mono">
+                  {short(e.observation.source_url, 70)}{" "}
+                  {safeHttpUrl(e.observation.source_url) && (
+                    <a href={safeHttpUrl(e.observation.source_url)!} target="_blank" rel="noopener noreferrer">Open source page ↗</a>
+                  )}
+                </div>
+              )}
               <div className="muted">basis: {e.confidence_basis}</div>
               {e.observation.raw_artifact_id && <div className="muted">raw artifact {short(e.observation.raw_artifact_id, 12)} (see Evidence Center)</div>}
             </div>

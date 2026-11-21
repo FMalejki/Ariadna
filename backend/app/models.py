@@ -351,6 +351,27 @@ class DiscoveryTask(Base):
     result_summary: Mapped[dict | None] = mapped_column(JSONType, nullable=True)
 
 
+class AutomationRun(Base):
+    """Persistent record of one automated lead run (stages A-E, see services/automation.py). The worker advances it in
+    bounded chunks; `log` is the analyst-facing step-by-step trail (what ran, outcome, error, policy skip)."""
+
+    __tablename__ = "automation_runs"
+    id: Mapped[str] = _pk()
+    investigation_id: Mapped[str] = mapped_column(ForeignKey("investigations.id"), index=True)
+    status: Mapped[str] = mapped_column(String(20), default="queued", index=True)  # queued|running|completed|stopped_by_limit|aborted|failed
+    config: Mapped[dict] = mapped_column(JSONType, default=dict)  # stages, limits, subject, login, query plan (never mutated)
+    progress: Mapped[dict] = mapped_column(JSONType, default=dict)  # executor cursor
+    counters: Mapped[dict] = mapped_column(JSONType, default=dict)
+    log: Mapped[list] = mapped_column(JSONType, default=list)
+    stop_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    abort_requested: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_by: Mapped[str] = mapped_column(String(100))
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, onupdate=utcnow)
+    started_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+    finished_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+
+
 class SourcePolicy(Base):
     """Allowlist / approval / denial rules for discovery (spec 3.1.B)."""
 

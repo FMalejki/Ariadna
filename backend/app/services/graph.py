@@ -59,6 +59,9 @@ def _node(ent: Entity, degree: int | None = None) -> dict:
         "last_observed_at": ent.last_observed_at.isoformat() if ent.last_observed_at else None,
         "degree": degree,
         "verified": bool((ent.meta or {}).get("verification", {}).get("status") == "verified"),
+        # Pointers the UI uses for "open the source page / open in an explorer" links (no new facts).
+        "network": (ent.meta or {}).get("network"), "address": (ent.meta or {}).get("address"),
+        "hash": (ent.meta or {}).get("hash"), "url": (ent.meta or {}).get("url"),
     }
 
 
@@ -184,7 +187,7 @@ def _add_source_edges(session: Session, root: str, cluster: list[str], sg: Subgr
                 "id": nid, "kind": "source", "label": src.display_name or src.canonical_key, "entity_type": "source",
                 "canonical_identifier": src.canonical_key, "status": src.collection_status, "resolution_status": None,
                 "first_observed_at": None, "last_observed_at": src.last_observed_at.isoformat() if src.last_observed_at else None,
-                "degree": None, "verified": False, "source_id": src.id,
+                "degree": None, "verified": False, "source_id": src.id, "url": src.canonical_url,
             }
         subject = role == ObservationEntityRole.SUBJECT.value
         etype = RelationshipType.SOURCE_DESCRIBES_ENTITY.value if subject else RelationshipType.ENTITY_REFERENCED_BY_SOURCE.value

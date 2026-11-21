@@ -10,7 +10,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from app.api import knowledge, leads, operations, system
+from app.api import automation, knowledge, leads, operations, system
 from app.audit import configure_logging
 from app.config import get_settings
 from app.db import Base, get_engine, get_session_factory
@@ -75,7 +75,7 @@ def create_app() -> FastAPI:
         log.exception("unhandled error", extra={"path": request.url.path})
         return JSONResponse({"detail": "internal server error"}, status_code=500)
 
-    for r in (system.router, knowledge.router, operations.router, leads.router):
+    for r in (system.router, knowledge.router, operations.router, leads.router, automation.router):
         app.include_router(r, prefix=API_PREFIX)
     return app
 

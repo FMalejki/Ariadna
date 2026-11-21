@@ -15,7 +15,7 @@ from app.artifacts import purge_expired
 from app.audit import configure_logging
 from app.db import get_session_factory
 from app.main import init_runtime
-from app.services import discovery
+from app.services import automation, discovery
 
 log = logging.getLogger("osint.worker")
 _stop = False
@@ -31,7 +31,13 @@ def tick(batch: int = 25) -> int:
             session.rollback()
             log.exception("worker tick failed")
             return 0
-    return len(done)
+        try:  # automation runs advance in bounded chunks (one run's failure must not block discovery)
+            advanced = automation.advance_due_runs(session)
+        except Exception:
+            session.rollback()
+            log.exception("automation tick failed")
+            advanced = 0
+    return len(done) + advanced
 
 
 def main(poll_seconds: float = 5.0) -> None:

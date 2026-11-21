@@ -83,6 +83,11 @@ def test_full_flow_import_graph_evidence_and_review(client, admin_headers):
     labels = {n["canonical_identifier"] for n in nb["nodes"]}
     assert f"addr:evm:{EVM_A}" in labels and "website:example.com/home" in labels
     assert nb["edges"]
+    # nodes carry pointers for "open page / open in explorer" links
+    wallet = next(n for n in nb["nodes"] if n["canonical_identifier"] == f"addr:evm:{EVM_A}")
+    assert wallet["network"] == "evm" and wallet["address"] == EVM_A.lower()
+    site = next(n for n in nb["nodes"] if n["canonical_identifier"] == "website:example.com/home")
+    assert site["url"] and site["url"].startswith("http")
 
     # every edge exposes evidence
     edge = next(e for e in nb["edges"] if e.get("relationship_type") == "ACCOUNT_PROFILE_REFERENCES_ADDRESS")

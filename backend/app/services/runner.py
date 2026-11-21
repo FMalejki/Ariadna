@@ -86,11 +86,12 @@ def run_provider(
     params = {"actor": actor, "investigation_id": investigation_id}
     run = ToolRun(
         provider_id=row.id, provider_name=impl.name, provider_version=impl.version, task_id=task_id,
-        input_key=data.target,
+        input_key=data.run_key,
         input_refs={
             "target": data.target,
             "entity_type": data.reference.entity_type if data.reference else None,
             "records": len(data.payload.get("records", [])) if data.payload else None,
+            **((data.payload or {}).get("run_meta") or {}),
         },
         parameters=params,
     )

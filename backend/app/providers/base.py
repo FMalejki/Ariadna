@@ -6,6 +6,8 @@ database. Their output is `NormalizedObservation`s that enter the staging -> ing
 from __future__ import annotations
 
 import abc
+import hashlib
+import json
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
@@ -33,6 +35,11 @@ class ProviderInputError(ValueError):
     """Input rejected by validate_input; never retried."""
 
 
+def cursor_digest(cursor) -> str:
+    """Short stable digest of a pagination cursor (identifies one history page; not a secret)."""
+    return hashlib.sha256(json.dumps(cursor, sort_keys=True, default=str).encode()).hexdigest()[:12]
+
+
 @dataclass
 class ProviderInput:
     reference: Reference | None  # the thing to investigate (None for pure imports)
@@ -43,6 +50,15 @@ class ProviderInput:
         if self.reference:
             return self.reference.canonical_id
         return str(self.payload.get("target") or self.payload.get("batch_id") or "import")[:580]
+
+    @property
+    def run_key(self) -> str:
+        """ToolRun.input_key. A history page ("load more", payload["cursor"]) gets its own key so it is never mistaken
+        for - or reused as - the first page of the same address."""
+        cursor = self.payload.get("cursor") if self.payload else None
+        if cursor is None:
+            return self.target
+        return f"{self.target}#page:{cursor_digest(cursor)}"[:580]
 
 
 @dataclass

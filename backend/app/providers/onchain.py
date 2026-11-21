@@ -22,6 +22,7 @@ import json
 from collections import OrderedDict
 from datetime import UTC, datetime
 from typing import Any
+from urllib.parse import urlencode
 
 import httpx
 
@@ -32,6 +33,7 @@ from app.normalize import (
     is_bitcoin_address,
     is_bitcoin_txid,
     is_solana_address,
+    is_solana_signature,
 )
 from app.providers.base import (
     HealthStatus,
@@ -43,6 +45,7 @@ from app.providers.base import (
     ProviderUnavailable,
     RawResult,
     SourceRef,
+    cursor_digest,
 )
 
 NOTE_ADDRESS = (
@@ -98,6 +101,12 @@ def _iso(ts: int | None) -> str | None:
     return datetime.fromtimestamp(ts, UTC).isoformat() if ts else None
 
 
+def page_source_key(ref: Reference, cursor: Any) -> str:
+    """Source key of an address lookup. A "load more" page is its OWN source, so storing it never supersedes the
+    first page's observation (append-only history; each page keeps its own provenance and tool run)."""
+    return ref.canonical_id if cursor is None else f"{ref.canonical_id}#page:{cursor_digest(cursor)}"
+
+
 # ----------------------------------------------------------------------------------------------- Bitcoin
 
 
@@ -136,6 +145,17 @@ def summarize_btc_txs(address: str, txs: list[dict], limit: int) -> tuple[list[d
     return recent, cps.result()
 
 
+def btc_next_cursor(txs: list[dict], limit: int) -> dict | None:
+    """Esplora pages confirmed history with /txs/chain/:last_seen_txid. Only confirmed transactions can anchor a page."""
+    shown = txs[:limit]
+    if not shown:
+        return None
+    last = shown[-1]
+    if not (last.get("status") or {}).get("confirmed") or not is_bitcoin_txid(last.get("txid", "")):
+        return None
+    return {"after": last["txid"]}
+
+
 class BitcoinEsploraProvider(IntelligenceProvider):
     name = "bitcoin_esplora"
     version = "1.0.0"
@@ -171,9 +191,18 @@ class BitcoinEsploraProvider(IntelligenceProvider):
             doc: dict = {"kind": "transaction", "found": tx is not None, "tx": tx}
         else:
             addr = ref.attrs["address"]
-            stats = get_json(client, f"{base}/address/{addr}", what="esplora address")
-            txs = get_json(client, f"{base}/address/{addr}/txs", what="esplora address txs") if stats is not None else []
-            doc = {"kind": "address", "found": stats is not None, "stats": stats, "txs": (txs or [])[: ctx.settings.onchain_history_limit]}
+            cursor = data.payload.get("cursor") if data.payload else None
+            if cursor:  # "load more": the next page of confirmed history after the last transaction already shown
+                after = str(cursor.get("after", ""))
+                if not is_bitcoin_txid(after):
+                    raise ProviderError("invalid Bitcoin history cursor")
+                txs = get_json(client, f"{base}/address/{addr}/txs/chain/{after}", what="esplora address txs page") or []
+                doc = {"kind": "address", "found": True, "page": True, "cursor": cursor, "stats": None,
+                       "txs": txs[: ctx.settings.onchain_history_limit]}
+            else:
+                stats = get_json(client, f"{base}/address/{addr}", what="esplora address")
+                txs = get_json(client, f"{base}/address/{addr}/txs", what="esplora address txs") if stats is not None else []
+                doc = {"kind": "address", "found": stats is not None, "stats": stats, "txs": (txs or [])[: ctx.settings.onchain_history_limit]}
         return RawResult(
             raw=json.dumps(doc, sort_keys=True).encode(), parsed=doc, log=f"found={doc['found']}",
             parameters={"esplora_base": base, "history_limit": ctx.settings.onchain_history_limit},
@@ -186,7 +215,7 @@ class BitcoinEsploraProvider(IntelligenceProvider):
         doc = raw.parsed
         src = SourceRef(
             SourceType.BLOCKCHAIN_TRANSACTION.value if doc["kind"] == "transaction" else SourceType.BLOCKCHAIN_ADDRESS.value,
-            ref.canonical_id, None, ref.canonical_id, ref.display_name, "esplora",
+            page_source_key(ref, doc.get("cursor")), None, ref.canonical_id, ref.display_name, "esplora",
         )
         if doc["kind"] == "transaction":
             if not doc["found"]:
@@ -208,20 +237,31 @@ class BitcoinEsploraProvider(IntelligenceProvider):
                 source=src, subject=ref, observation_type=ObservationType.BLOCKCHAIN_TRANSACTION.value,
                 observed_at=datetime.fromtimestamp(bt, UTC) if bt else now, payload=payload, external_id=ref.canonical_id,
             )]
-        if not doc["found"]:
+        if doc.get("page"):
+            addr = ref.attrs["address"]
+            limit = ctx.settings.onchain_history_limit
+            recent, cps = summarize_btc_txs(addr, doc["txs"], limit)
+            payload = {
+                "network": "bitcoin", "found": True, "address": addr, "source": "esplora", "page": True,
+                "recent_transactions": recent, "counterparties": cps,
+                "history_truncated": len(doc["txs"]) >= limit, "next_cursor": btc_next_cursor(doc["txs"], limit), "note": NOTE_ADDRESS,
+            }
+        elif not doc["found"]:
             payload = {"network": "bitcoin", "found": False, "note": NOTE_ADDRESS}
         else:
             addr = ref.attrs["address"]
             chain, mem = doc["stats"].get("chain_stats", {}), doc["stats"].get("mempool_stats", {})
             confirmed = chain.get("funded_txo_sum", 0) - chain.get("spent_txo_sum", 0)
             unconfirmed = mem.get("funded_txo_sum", 0) - mem.get("spent_txo_sum", 0)
-            recent, cps = summarize_btc_txs(addr, doc["txs"], ctx.settings.onchain_history_limit)
+            limit = ctx.settings.onchain_history_limit
+            recent, cps = summarize_btc_txs(addr, doc["txs"], limit)
             total = chain.get("tx_count", 0) + mem.get("tx_count", 0)
             payload = {
                 "network": "bitcoin", "found": True, "address": addr, "source": "esplora",
                 "balance": {"confirmed_sats": confirmed, "unconfirmed_delta_sats": unconfirmed, "btc": sats_to_btc(confirmed)},
                 "tx_count": total, "recent_transactions": recent, "counterparties": cps,
-                "history_truncated": total > len(recent), "note": NOTE_ADDRESS,
+                "history_truncated": total > len(recent), "next_cursor": btc_next_cursor(doc["txs"], limit) if total > len(recent) else None,
+                "note": NOTE_ADDRESS,
             }
         return [NormalizedObservation(
             source=src, subject=ref, observation_type=ObservationType.BLOCKCHAIN_ADDRESS.value, observed_at=now, payload=payload,
@@ -245,13 +285,23 @@ class BitcoinEsploraProvider(IntelligenceProvider):
 # ----------------------------------------------------------------------------------------------- EVM (Blockscout)
 
 
-def blockscout_history(client: httpx.Client, base: str, address: str, limit: int) -> dict:
-    """Balance + recent transactions + counterparties from a Blockscout-compatible REST API."""
+def blockscout_history(client: httpx.Client, base: str, address: str, limit: int, cursor: dict | None = None) -> dict:
+    """Balance + recent transactions + counterparties from a Blockscout-compatible REST API.
+
+    `cursor` is the previous response's `next_page_params` (verified against the live API: it is url-encoded back as
+    query parameters). With a cursor only that page is fetched (no balance lookup)."""
     base = base.rstrip("/")
-    info = get_json(client, f"{base}/v2/addresses/{address}", what="blockscout address")
-    if info is None:
-        return {"found": False, "recent_transactions": [], "counterparties": []}
-    txs = get_json(client, f"{base}/v2/addresses/{address}/transactions", what="blockscout transactions") or {}
+    info = None
+    if cursor is None:
+        info = get_json(client, f"{base}/v2/addresses/{address}", what="blockscout address")
+        if info is None:
+            return {"found": False, "recent_transactions": [], "counterparties": []}
+    qs = ""
+    if cursor is not None:
+        if not isinstance(cursor, dict) or not cursor or len(cursor) > 12:
+            raise ProviderError("invalid EVM history cursor")
+        qs = "?" + urlencode({str(k): "" if v is None else str(v) for k, v in cursor.items()})
+    txs = get_json(client, f"{base}/v2/addresses/{address}/transactions{qs}", what="blockscout transactions") or {}
     own = address.lower()
     cps = CounterpartyCollector(own)
     recent: list[dict] = []
@@ -271,14 +321,19 @@ def blockscout_history(client: httpx.Client, base: str, address: str, limit: int
             {"hash": h, "time": tx.get("timestamp"), "direction": direction, "value_wei": tx.get("value"),
              "status": tx.get("result") or tx.get("status"), "block_number": tx.get("block_number")}
         )
-    wei = info.get("coin_balance")
-    return {
-        "found": True, "source": "blockscout", "balance_wei": wei, "balance_native": _wei_to_native(wei),
-        "is_contract": info.get("is_contract"), "ens_domain_name": info.get("ens_domain_name"),
-        "explorer_flags": {"is_scam": info.get("is_scam"), "reputation": info.get("reputation")},
-        "recent_transactions": recent, "counterparties": cps.result(),
-        "history_truncated": bool(txs.get("next_page_params")) or len(txs.get("items") or []) > limit,
-    }
+    truncated = bool(txs.get("next_page_params")) or len(txs.get("items") or []) > limit
+    # only offer a cursor when the page was consumed completely; otherwise the unseen part of this page would be skipped
+    next_cursor = txs.get("next_page_params") if len(txs.get("items") or []) <= limit else None
+    out = {"found": True, "source": "blockscout", "recent_transactions": recent, "counterparties": cps.result(),
+           "history_truncated": truncated, "next_cursor": next_cursor}
+    if info is not None:
+        wei = info.get("coin_balance")
+        out.update({
+            "balance_wei": wei, "balance_native": _wei_to_native(wei), "is_contract": info.get("is_contract"),
+            "ens_domain_name": info.get("ens_domain_name"),
+            "explorer_flags": {"is_scam": info.get("is_scam"), "reputation": info.get("reputation")},
+        })
+    return out
 
 
 def _wei_to_native(wei: str | int | None) -> str | None:
@@ -299,9 +354,16 @@ _SOLANA_INFRA = {
 }
 
 
-def solana_history(rpc_call, client: httpx.Client, url: str, address: str, limit: int) -> dict:
-    """Recent signatures + same-transaction participants whose balance changed. `rpc_call` is injected to avoid a cycle."""
-    sigs = rpc_call(client, url, "getSignaturesForAddress", [address, {"limit": limit}]) or []
+def solana_history(rpc_call, client: httpx.Client, url: str, address: str, limit: int, before: str | None = None) -> dict:
+    """Recent signatures + same-transaction participants whose balance changed. `rpc_call` is injected to avoid a cycle.
+
+    `before` is the last signature of the previous page (getSignaturesForAddress pagination, verified live)."""
+    opts: dict = {"limit": limit}
+    if before is not None:
+        if not is_solana_signature(before):
+            raise ProviderError("invalid Solana history cursor")
+        opts["before"] = before
+    sigs = rpc_call(client, url, "getSignaturesForAddress", [address, opts]) or []
     if not isinstance(sigs, list):
         raise ProviderError("unexpected getSignaturesForAddress response shape (not a list)")
     cps = CounterpartyCollector(address)
@@ -332,7 +394,10 @@ def solana_history(rpc_call, client: httpx.Client, url: str, address: str, limit
                 owner = b.get("owner")
                 if owner and owner not in _SOLANA_INFRA and is_solana_address(owner):
                     cps.add(owner, "same_transaction_token_balance_change", sig)
-    return {"recent_transactions": recent, "counterparties": cps.result(), "history_truncated": len(sigs) >= limit, "errors": errors}
+    return {
+        "recent_transactions": recent, "counterparties": cps.result(), "history_truncated": len(sigs) >= limit, "errors": errors,
+        "next_cursor": {"before": sigs[limit - 1]["signature"]} if len(sigs) >= limit and sigs[limit - 1].get("signature") else None,
+    }
 
 
 __all__ = [

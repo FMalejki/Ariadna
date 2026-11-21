@@ -5,10 +5,11 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
-import { Badge, Empty, ErrorLine, Page, short, when } from "@/components/ui";
+import { Badge, Empty, ErrorLine, Page, Repeatability, short, when } from "@/components/ui";
 
 const NET_LABEL: Record<string, string> = { evm: "EVM", solana: "Solana", bitcoin: "Bitcoin" };
 const STORE = "osint.leads.investigation";
+const MAX_EXPAND = 20; // mirrors the backend limit per expansion
 
 function Step({ n, title, children, hint }: { n: number; title: string; hint?: string; children: React.ReactNode }) {
   return (
@@ -62,7 +63,7 @@ export default function Leads() {
   });
   const begin = useMutation({
     mutationFn: () => api<any>("/leads/sessions", { body: { subject } }),
-    onSuccess: (r) => { setInvStored(r.investigation_id); setSearches({}); setPage(null); setOnchain({}); },
+    onSuccess: (r) => { setInvStored(r.investigation_id); setSearches({}); setPage(null); setOnchain({}); setMorePages({}); },
   });
 
   // ---- step 2: search (analyst approves each query; backend explicit)
@@ -97,7 +98,14 @@ export default function Leads() {
   const [onchain, setOnchain] = useState<Record<string, any>>({});
   const lookup = useMutation({
     mutationFn: (v: { entity_id: string; refresh: boolean }) => api<any>("/leads/onchain", { body: { investigation_id: inv, ...v } }),
-    onSuccess: (r) => { setOnchain((o) => ({ ...o, [r.entity_id]: r })); refresh(); },
+    onSuccess: (r) => { setOnchain((o) => ({ ...o, [r.entity_id]: r })); setMorePages((m) => ({ ...m, [r.entity_id]: [] })); refresh(); },
+  });
+
+  // ---- "load more": further history pages, each a separate audited provider run (kept per wallet, oldest first)
+  const [morePages, setMorePages] = useState<Record<string, any[]>>({});
+  const loadMore = useMutation({
+    mutationFn: (v: { entity_id: string; lookup_run_id: string }) => api<any>("/leads/onchain/more", { body: { investigation_id: inv, ...v } }),
+    onSuccess: (r) => { setMorePages((m) => ({ ...m, [r.entity_id]: [...(m[r.entity_id] ?? []), r] })); refresh(); },
   });
 
   // ---- step 6: expand selected counterparties
@@ -248,6 +256,7 @@ export default function Leads() {
                         <code>{c.address}</code>
                         <span className="muted">{c.occurrences}× on page</span>
                       </div>
+                      <div><Repeatability r={c.repeatability} /></div>
                       {c.contexts.map((ctx: string, i: number) => <div key={i} className="muted" style={{ fontStyle: "italic" }}>“{ctx}”</div>)}
                       <div className="mono muted">{page.page.final_url}</div>
                       {t ? (
@@ -283,12 +292,35 @@ export default function Leads() {
                 <button className="sm" disabled={!canAct || lookup.isPending} onClick={() => lookup.mutate({ entity_id: w.entity_id, refresh: false })}>Look up on-chain</button>
                 {o && <button className="ghost sm" disabled={!canAct || lookup.isPending} onClick={() => lookup.mutate({ entity_id: w.entity_id, refresh: true })}>Refresh</button>}
               </div>
+              {w.repeatability && <div><Repeatability r={w.repeatability} /></div>}
               {o && (
                 <>
                   <RunLine r={o} />
                   {o.reused_prior_run && <div className="muted">Reused a recent stored lookup (retrieved {when(o.retrieved_at)}); use Refresh to query the node again.</div>}
-                  {o.view?.networks.map((n: any) => (
-                    <div key={n.network} style={{ marginTop: 6 }}>
+                  {o.view?.networks.map((n: any, ni: number) => {
+                    const pages = (morePages[w.entity_id] ?? []).map((p: any) => ({ run: p.lookup_run_id, n: p.view?.networks?.find((x: any) => x.network === n.network) })).filter((p: any) => p.n);
+                    const all = [{ run: o.lookup_run_id, n }, ...pages];
+                    const last = all[all.length - 1];
+                    const txs: any[] = []; const seen = new Set<string>();
+                    all.forEach((pg) => (pg.n.recent_transactions ?? []).forEach((t: any) => { if (!seen.has(t.hash)) { seen.add(t.hash); txs.push(t); } }));
+                    const cps = new Map<string, any>();  // merged across loaded pages; the first page a counterparty appeared in is cited as evidence
+                    all.forEach((pg) => (pg.n.counterparties ?? []).forEach((c: any) => {
+                      const key = `${c.address.toLowerCase()}|${c.direction}`;
+                      const cur = cps.get(key);
+                      if (cur) cur.tx_count += c.tx_count; else cps.set(key, { ...c, run: pg.run });
+                    }));
+                    const rows = Array.from(cps.values());
+                    const keyOf = (c: any) => `${w.entity_id}|${n.network}|${c.address}|${c.direction}|${c.run}`;
+                    const selectable = rows.filter((c) => !c.is_contract);
+                    const mine = Object.keys(picked).filter((k) => picked[k] && k.startsWith(`${w.entity_id}|${n.network}|`));
+                    const selectAll = () => {
+                      const next: Record<string, boolean> = { ...picked };
+                      mine.forEach((k) => delete next[k]);
+                      selectable.slice(0, MAX_EXPAND).forEach((c) => { next[keyOf(c)] = true; });
+                      setPicked(next);
+                    };
+                    return (
+                    <div key={n.network + ni} style={{ marginTop: 6 }}>
                       <div className="row">
                         <b>{n.network}</b>
                         {n.found === false && <span className="muted">address not seen on this network</span>}
@@ -299,45 +331,71 @@ export default function Leads() {
                       </div>
                       {n.error && <div className="err">{n.error}</div>}
                       {n.history_error && <div className="muted">history: {n.history_error}</div>}
-                      {n.recent_transactions?.length > 0 && (
-                        <table>
-                          <thead><tr><th>Recent tx</th><th>Time</th><th>Direction / amount</th></tr></thead>
-                          <tbody>
-                            {n.recent_transactions.map((t: any) => (
-                              <tr key={t.hash}>
-                                <td className="mono">{short(t.hash, 18)}</td>
-                                <td>{when(t.time)}</td>
-                                <td>{t.direction ?? (t.failed ? "failed" : "")} {t.net_btc ? `${t.net_btc} BTC` : ""} {t.value_wei ? `${t.value_wei} wei` : ""}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      )}
-                      {n.history_truncated && <div className="muted">History is truncated to the most recent transactions.</div>}
-                      {n.counterparties?.length > 0 && (
-                        <>
-                          <h3>Counterparties (step 5: you choose)</h3>
-                          <div className="notice">Other addresses seen in the same transactions. Exchanges and contracts appear for many unrelated parties; this is not ownership.</div>
+                      {txs.length > 0 && (
+                        <div style={{ maxHeight: 280, overflowY: "auto", border: "1px solid var(--border, #d0d7de)", borderRadius: 6 }}>
                           <table>
+                            <thead style={{ position: "sticky", top: 0, background: "var(--panel, #fff)" }}><tr><th>Tx</th><th>Time</th><th>Direction / amount</th></tr></thead>
                             <tbody>
-                              {n.counterparties.map((c: any) => {
-                                const k = `${w.entity_id}|${n.network}|${c.address}|${c.direction}`;
-                                return (
-                                  <tr key={k}>
-                                    <td style={{ width: 28 }}><input type="checkbox" checked={!!picked[k]} onChange={(e) => setPicked((p) => ({ ...p, [k]: e.target.checked }))} /></td>
-                                    <td className="mono">{c.address}</td>
-                                    <td>{c.direction.replace(/_/g, " ")} · {c.tx_count} tx {c.is_contract ? <Badge value="contract" /> : null}</td>
-                                  </tr>
-                                );
-                              })}
+                              {txs.map((t: any) => (
+                                <tr key={t.hash}>
+                                  <td className="mono">{short(t.hash, 18)}</td>
+                                  <td>{when(t.time)}</td>
+                                  <td>{t.direction ?? (t.failed ? "failed" : "")} {t.net_btc ? `${t.net_btc} BTC` : ""} {t.value_wei ? `${t.value_wei} wei` : ""}</td>
+                                </tr>
+                              ))}
                             </tbody>
                           </table>
+                        </div>
+                      )}
+                      {txs.length > 0 && <div className="muted">{txs.length} transaction(s) loaded{all.length > 1 ? ` from ${all.length} pages` : ""}.</div>}
+                      {last.n.has_more ? (
+                        <div className="row" style={{ marginTop: 4 }}>
+                          <button className="ghost sm" disabled={!canAct || loadMore.isPending} onClick={() => loadMore.mutate({ entity_id: w.entity_id, lookup_run_id: last.run })}>
+                            {loadMore.isPending ? "Loading…" : "Load more"}
+                          </button>
+                          <span className="muted">fetches the next page from the node/explorer as a separate, audited run</span>
+                        </div>
+                      ) : last.n.history_truncated ? (
+                        <div className="muted">History is truncated and no further page can be requested (cursor unavailable).</div>
+                      ) : txs.length > 0 ? <div className="muted">End of history reached.</div> : null}
+                      {rows.length > 0 && (
+                        <>
+                          <h3>Counterparties (you choose)</h3>
+                          <div className="notice">Other addresses seen in the same transactions. Exchanges and contracts appear for many unrelated parties; this is not ownership. Counts are summed over the loaded pages; the first page a counterparty appeared in is cited as its evidence.</div>
                           <div className="row">
-                            <button className="sm" disabled={!canAct || expand.isPending || !Object.keys(picked).some((k) => k.startsWith(`${w.entity_id}|`) && picked[k])}
+                            <button className="ghost sm" disabled={selectable.length === 0} onClick={selectAll}>
+                              Select all{selectable.length > MAX_EXPAND ? ` (first ${MAX_EXPAND})` : ""}
+                            </button>
+                            <button className="ghost sm" disabled={mine.length === 0} onClick={() => { const next = { ...picked }; mine.forEach((k) => delete next[k]); setPicked(next); }}>Clear</button>
+                            <span className={mine.length >= MAX_EXPAND ? "err" : "muted"}>{mine.length} / {MAX_EXPAND} selected</span>
+                            <span className="muted">· contracts ({rows.length - selectable.length}) are not selected by "Select all"</span>
+                          </div>
+                          <div style={{ maxHeight: 320, overflowY: "auto", border: "1px solid var(--border, #d0d7de)", borderRadius: 6 }}>
+                            <table>
+                              <tbody>
+                                {rows.map((c: any) => {
+                                  const k = keyOf(c);
+                                  const checked = !!picked[k];
+                                  return (
+                                    <tr key={k}>
+                                      <td style={{ width: 28 }}>
+                                        <input type="checkbox" checked={checked} disabled={!checked && mine.length >= MAX_EXPAND}
+                                          onChange={(e) => setPicked((p) => { const next = { ...p }; if (e.target.checked) next[k] = true; else delete next[k]; return next; })} />
+                                      </td>
+                                      <td className="mono">{c.address}</td>
+                                      <td>{c.direction.replace(/_/g, " ")} · {c.tx_count} tx {c.is_contract ? <Badge value="contract" /> : null}</td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                          <div className="row" style={{ marginTop: 4 }}>
+                            <button className="sm" disabled={!canAct || expand.isPending || mine.length === 0}
                               onClick={() => {
-                                const list = Object.keys(picked).filter((k) => picked[k] && k.startsWith(`${w.entity_id}|`)).map((k) => {
-                                  const [, network, address, direction] = k.split("|");
-                                  return { network, address, direction };
+                                const list = mine.map((k) => {
+                                  const [, network, address, direction, lookup_run_id] = k.split("|");
+                                  return { network, address, direction, lookup_run_id };
                                 });
                                 expand.mutate({ entity_id: w.entity_id, lookup_run_id: o.lookup_run_id, list });
                               }}>Add selected as related wallets</button>
@@ -346,7 +404,8 @@ export default function Leads() {
                         </>
                       )}
                     </div>
-                  ))}
+                    );
+                  })}
                   {expanded[w.entity_id] && (
                     <div className="notice">
                       Added {expanded[w.entity_id].added.length} wallet(s){expanded[w.entity_id].skipped.length ? `, skipped ${expanded[w.entity_id].skipped.length}` : ""}.{" "}
@@ -358,7 +417,7 @@ export default function Leads() {
             </div>
           );
         })}
-        <ErrorLine error={lookup.error || expand.error} />
+        <ErrorLine error={lookup.error || expand.error || loadMore.error} />
       </Step>
 
       {state.data && state.data.relationships.length > 0 && (

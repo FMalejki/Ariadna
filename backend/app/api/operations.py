@@ -150,7 +150,9 @@ class ScopeIn(BaseModel):
 
 class InvestigationIn(BaseModel):
     name: str = Field(min_length=1, max_length=200)
-    seed: str = Field(min_length=1, max_length=2000, description="URL, @handle, wallet address, tx hash, or domain")
+    seed: str | None = Field(default=None, max_length=2000, description="URL, @handle, wallet address, tx hash, or domain (optional)")
+    full_name: str | None = Field(default=None, max_length=200, description="Full name: a parameter of the investigation, creates no entity")
+    login: str | None = Field(default=None, max_length=64, description="Platform-less login/username (checked by Sherlock on many sites)")
     description: str = ""
     platform_hint: str | None = None
     scope: ScopeIn = ScopeIn()
@@ -162,16 +164,17 @@ def create_investigation(body: InvestigationIn, session: SessionDep, user: User 
     try:
         inv, ref, tasks = disc.start_investigation(
             session, name=body.name, seed=body.seed, actor=user.username, scope=body.scope.model_dump(),
-            description=body.description, platform_hint=body.platform_hint,
+            description=body.description, platform_hint=body.platform_hint, full_name=body.full_name, login=body.login,
         )
     except InvalidReference as exc:
         raise HTTPException(422, str(exc)) from exc
     ran = disc.run_pending(session, investigation_id=inv.id, actor=user.username) if body.run_now else []
-    ent = ent_svc.find_entity(session, ref.canonical_id)
+    ent = ent_svc.find_entity(session, ref.canonical_id) if ref is not None else None
     return {
         "investigation": _inv_dict(inv),
-        "seed": {"canonical_identifier": ref.canonical_id, "entity_type": ref.entity_type,
-                 "entity_id": ent_svc.resolve_id(session, ent.id) if ent else None},
+        "seed": None if ref is None else {
+            "canonical_identifier": ref.canonical_id, "entity_type": ref.entity_type,
+            "entity_id": ent_svc.resolve_id(session, ent.id) if ent else None},
         "tasks": [_task_dict(t) for t in tasks], "executed": [_task_dict(t) for t in ran],
     }
 

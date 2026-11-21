@@ -114,6 +114,10 @@ export interface GraphNode {
   degree: number | null;
   verified: boolean;
   kind: string;
+  network?: string | null;
+  address?: string | null;
+  hash?: string | null;
+  url?: string | null;
 }
 export interface GraphEdge {
   id: string;

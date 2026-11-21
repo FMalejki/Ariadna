@@ -30,7 +30,7 @@ from app.config import get_settings
 from app.db import utcnow
 from app.domain import EntityType, PolicyAction, TaskStatus, ToolRunStatus
 from app.models import DiscoveryTask, Entity, Investigation, ObservationEntity, Provider, SourcePolicy, ToolRun
-from app.normalize import InvalidReference, Reference, classify_seed
+from app.normalize import InvalidReference, Reference, classify_seed, classify_username
 from app.providers.base import ProviderContext, ProviderInput
 from app.providers.registry import all_providers, get_provider, sync_providers
 from app.services import entities as ent_svc
@@ -138,19 +138,48 @@ def create_tasks_for_reference(
 
 
 def start_investigation(
-    session: Session, *, name: str, seed: str, actor: str, scope: dict | None = None, description: str = "", platform_hint: str | None = None
-) -> tuple[Investigation, Reference, list[DiscoveryTask]]:
-    ref = classify_seed(seed, platform_hint)  # raises InvalidReference
-    inv = Investigation(name=name, description=description, scope={**DEFAULT_SCOPE, **(scope or {})}, created_by=actor)
+    session: Session, *, name: str, seed: str | None = None, actor: str, scope: dict | None = None, description: str = "",
+    platform_hint: str | None = None, full_name: str | None = None, login: str | None = None,
+) -> tuple[Investigation, Reference | None, list[DiscoveryTask]]:
+    """Start an investigation from a seed (URL/address/@handle), a platform-less login, a full name, or a mix.
+
+    * `login` becomes a platform-less username entity (Sherlock decides the sites; no platform is assumed).
+    * `full_name` creates NO entity (there is no "person" type). It is stored in `scope["subject"]` as a parameter
+      of the investigation and of its search queries / repeatability terms.
+    * The returned reference is the seed when given, otherwise the login, otherwise None (name only).
+    Raises InvalidReference before anything is written.
+    """
+    full_name = (full_name or "").strip() or None
+    seed = (seed or "").strip() or None
+    login = (login or "").strip() or None
+    if not (seed or login or full_name):
+        raise InvalidReference("provide at least one of: seed, login, full name")
+    refs: list[Reference] = []
+    if seed:
+        refs.append(classify_seed(seed, platform_hint))  # raises InvalidReference
+    login_ref = classify_username(login) if login else None  # raises InvalidReference
+    if login_ref is not None and all(r.key != login_ref.key for r in refs):
+        refs.append(login_ref)
+    extra: dict = {}
+    if full_name:
+        extra["subject"] = full_name
+    if login_ref is not None:
+        extra["login"] = login_ref.attrs["handle"]
+    inv = Investigation(name=name, description=description, scope={**DEFAULT_SCOPE, **(scope or {}), **extra}, created_by=actor)
     session.add(inv)
     session.flush()
-    audit(session, actor, "investigation.create", "investigation", inv.id, seed=ref.canonical_id)
-    ent, created = ent_svc.get_or_create_entity(session, ref, None)  # step 1: reuse existing, else create
-    ingest_svc._add_item(session, inv.id, "entity", ent.id, "seed" if created else "reused")
-    tasks = create_tasks_for_reference(
-        session, inv, ref, depth=0, originating_observation_id=None, parent_task_id=None, target_entity_id=ent.id, actor=actor
+    audit(
+        session, actor, "investigation.create", "investigation", inv.id,
+        seed=refs[0].canonical_id if refs else None, login=extra.get("login"), has_full_name=bool(full_name),
     )
-    return inv, ref, tasks
+    tasks: list[DiscoveryTask] = []
+    for ref in refs:
+        ent, created = ent_svc.get_or_create_entity(session, ref, None)  # step 1: reuse existing, else create
+        ingest_svc._add_item(session, inv.id, "entity", ent.id, "seed" if created else "reused")
+        tasks += create_tasks_for_reference(
+            session, inv, ref, depth=0, originating_observation_id=None, parent_task_id=None, target_entity_id=ent.id, actor=actor
+        )
+    return inv, (refs[0] if refs else None), tasks
 
 
 def decide_task(session: Session, task: DiscoveryTask, approve: bool, actor: str, reason: str = "") -> DiscoveryTask:

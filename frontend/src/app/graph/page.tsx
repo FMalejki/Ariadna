@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { Core, ElementDefinition } from "cytoscape";
 import { api, type GraphEdge, type GraphNode, type Subgraph } from "@/lib/api";
 import { Badge, ErrorLine, Page, RelationshipDrawer, short } from "@/components/ui";
+import { explorerLinks, safeHttpUrl } from "@/lib/links";
 
 const TYPE_COLOR: Record<string, string> = {
   social_account: "#4c8dff", public_profile: "#60a5fa", post: "#7aa7ff", channel: "#38bdf8", website: "#a78bfa", domain: "#c4b5fd",
@@ -20,6 +21,29 @@ function toElements(nodes: GraphNode[], edges: GraphEdge[]): ElementDefinition[]
   ];
 }
 
+/** Links so the analyst can check the page or the address on a public explorer themselves. */
+function NodeLinks({ node }: { node: GraphNode }) {
+  const isTx = node.entity_type === "transaction";
+  const chain = node.entity_type === "wallet" || node.entity_type === "contract" || node.entity_type === "token" || isTx
+    ? explorerLinks(node.network, isTx ? "tx" : "address", isTx ? node.hash : node.address)
+    : [];
+  const page = safeHttpUrl(node.url);
+  if (chain.length === 0 && !page) return null;
+  return (
+    <div>
+      {page && <div><a href={page} target="_blank" rel="noopener noreferrer">Open page ↗</a> <span className="muted">{short(page, 50)}</span></div>}
+      {chain.length > 0 && (
+        <div className="row">
+          <span className="muted">View on explorer:</span>
+          {chain.map((l) => <a key={l.url} href={l.url} target="_blank" rel="noopener noreferrer">{l.label} ↗</a>)}
+        </div>
+      )}
+      {chain.length > 0 && node.network === "evm" && <div className="muted">Network is not determined for this address, so each known chain is offered.</div>}
+      <div className="muted">External links are for your own checking; they are not evidence.</div>
+    </div>
+  );
+}
+
 export default function GraphPage() {
   const box = useRef<HTMLDivElement>(null);
   const cyRef = useRef<Core | null>(null);
@@ -31,6 +55,7 @@ export default function GraphPage() {
   const [edgeId, setEdgeId] = useState<string | null>(null);
   const [pathStart, setPathStart] = useState<GraphNode | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const [counts, setCounts] = useState({ n: 0, e: 0 });
   const statusParam = statuses.join(",") || undefined;
@@ -66,11 +91,27 @@ export default function GraphPage() {
     }
   }, [merge, statusParam]);
 
-  const expand = useCallback(async (id: string) => {
+  const expand = useCallback(async (id: string, type?: string) => {
+    setError(null);
+    setMsg(null);
     try {
+      if (type === "wallet") {
+        // Wallet: make sure its on-chain history is stored (a stored lookup is reused), link the top counterparties, one step.
+        setBusy(true);
+        const r = await api<any>("/leads/graph-expand", { method: "POST", body: { entity_id: id } });
+        setMsg(
+          r.lookup?.unavailable || (r.lookup?.status && r.lookup.status !== "succeeded")
+            ? `On-chain lookup failed: ${r.lookup?.error ?? r.lookup?.status}. Showing only what is already stored.`
+            : `${r.lookup?.reused_prior_run ? "Used the stored on-chain lookup" : "Queried the node"}; ` +
+              `${r.linked_new} new counterpart${r.linked_new === 1 ? "y" : "ies"} linked, ${r.added.length - r.linked_new} already present` +
+              `${r.skipped_over_limit ? `, ${r.skipped_over_limit} more not linked (limit)` : ""}. ${r.note}`,
+        );
+      }
       merge(await api<Subgraph>(`/graph/neighbors/${id}`, { params: { statuses: statusParam, limit: 40 } }));
     } catch (e) {
       setError(e);
+    } finally {
+      setBusy(false);
     }
   }, [merge, statusParam]);
 
@@ -102,7 +143,7 @@ export default function GraphPage() {
         ],
       });
       cy.on("tap", "node", (ev) => { setEdgeId(null); setSelectedNode(ev.target.data() as GraphNode); });
-      cy.on("dbltap", "node", (ev) => expandRef.current(ev.target.id()));
+      cy.on("dbltap", "node", (ev) => expandRef.current(ev.target.id(), ev.target.data("entity_type")));
       cy.on("tap", "edge", (ev) => { setSelectedNode(null); setEdgeId(ev.target.id()); });
       cy.on("tap", (ev) => { if (ev.target === cy) { setSelectedNode(null); } });
       cyRef.current = cy;
@@ -171,8 +212,9 @@ export default function GraphPage() {
           <div className="row"><h2 className="grow">{selectedNode.label}</h2><button className="ghost sm" onClick={() => setSelectedNode(null)}>Close</button></div>
           <div className="row"><Badge value={selectedNode.entity_type} /><Badge value={selectedNode.verified ? "verified" : "unverified"} /><Badge value={selectedNode.resolution_status} /></div>
           <p className="mono">{selectedNode.canonical_identifier}</p>
+          <NodeLinks node={selectedNode} />
           <div className="row">
-            <button onClick={() => expand(selectedNode.id)}>Expand neighbours</button>
+            <button disabled={busy} onClick={() => expand(selectedNode.id, selectedNode.entity_type)}>{busy ? "Expanding…" : "Expand neighbours"}</button>
             <a href={`/entities?id=${selectedNode.id}`}>Open profile</a>
           </div>
           <h3>Shortest path</h3>

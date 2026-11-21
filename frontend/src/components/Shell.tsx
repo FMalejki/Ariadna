@@ -8,6 +8,7 @@ import { useAuth } from "@/lib/auth";
 const NAV: [string, string][] = [
   ["/", "Overview"],
   ["/leads", "Lead Search"],
+  ["/automation", "Automation"],
   ["/discovery", "Discovery"],
   ["/graph", "Knowledge Graph"],
   ["/entities", "Entities"],

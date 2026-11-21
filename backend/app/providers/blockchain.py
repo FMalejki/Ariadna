@@ -50,7 +50,7 @@ from app.providers.base import (
 
 import json
 
-from app.providers.onchain import blockscout_history, solana_history  # noqa: E402
+from app.providers.onchain import blockscout_history, page_source_key, solana_history  # noqa: E402
 
 TRANSFER_TOPIC = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"  # keccak256("Transfer(address,address,uint256)")
 
@@ -115,6 +115,15 @@ class EvmRpcProvider(IntelligenceProvider):
         ref = data.reference
         assert ref is not None
         nets = self._networks_for(ref, ctx)
+        cursor = data.payload.get("cursor") if data.payload else None
+        if cursor is not None:  # "load more": one network, one history page, nothing else is re-queried
+            if ref.entity_type == EntityType.TRANSACTION.value or not isinstance(cursor, dict) or not isinstance(cursor.get("params"), dict):
+                raise ProviderError("invalid EVM history cursor")
+            net = str(cursor.get("network"))
+            explorer = ctx.settings.evm_explorer_apis.get(net)
+            if net not in nets or not explorer:
+                raise ProviderUnavailable(f"no history explorer configured for network {net!r} (set OSINT_EVM_EXPLORER_APIS)")
+            nets = {net: nets[net]}
         if not nets:
             raise ProviderUnavailable(f"no EVM RPC configured for network {ref.network!r} (set OSINT_EVM_RPC_URLS)")
         client = ctx.client()
@@ -122,7 +131,10 @@ class EvmRpcProvider(IntelligenceProvider):
         errors: dict[str, str] = {}
         for net, url in nets.items():
             try:
-                if ref.entity_type == EntityType.TRANSACTION.value:
+                if cursor is not None:
+                    hist = blockscout_history(client, ctx.settings.evm_explorer_apis[net], ref.attrs["address"], ctx.settings.onchain_history_limit, cursor["params"])
+                    results[net] = {"history": hist}
+                elif ref.entity_type == EntityType.TRANSACTION.value:
                     results[net] = self._lookup_tx(client, url, ref.attrs["hash"])
                 else:
                     results[net] = self._lookup_address(client, url, ref.attrs["address"])
@@ -137,6 +149,8 @@ class EvmRpcProvider(IntelligenceProvider):
         if not results:
             raise ProviderError("all configured EVM RPC endpoints failed: " + "; ".join(f"{k}: {v}" for k, v in errors.items()))
         doc = {"queried_networks": sorted(nets), "results": results, "errors": errors}
+        if cursor is not None:
+            doc["page"], doc["cursor"] = True, cursor
         return RawResult(
             raw=json.dumps(doc, sort_keys=True).encode(), parsed=doc,
             log=f"queried {len(nets)} network(s); errors={len(errors)}", parameters={"networks": sorted(nets)},
@@ -235,9 +249,11 @@ class EvmRpcProvider(IntelligenceProvider):
     def _normalize_address(self, ref: Reference, doc: dict, now: datetime) -> list[NormalizedObservation]:
         payload = {"address": ref.attrs["address"], "per_network": doc["results"], "errors": doc["errors"],
                    "note": "Activity counts are on-chain facts about the address only; no ownership is implied."}
+        if doc.get("page"):
+            payload["page"] = True
         return [
             NormalizedObservation(
-                source=SourceRef(SourceType.BLOCKCHAIN_ADDRESS.value, ref.canonical_id, None, ref.canonical_id, ref.display_name, "rpc"),
+                source=SourceRef(SourceType.BLOCKCHAIN_ADDRESS.value, page_source_key(ref, doc.get("cursor")), None, ref.canonical_id, ref.display_name, "rpc"),
                 subject=ref, observation_type=ObservationType.BLOCKCHAIN_ADDRESS.value, observed_at=now, payload=payload,
                 external_id=ref.canonical_id,
             )
@@ -292,12 +308,17 @@ class SolanaRpcProvider(IntelligenceProvider):
             result = rpc_call(client, url, "getTransaction", [ref.attrs["hash"], {"encoding": "jsonParsed", "maxSupportedTransactionVersion": 0, "commitment": "finalized"}])
             doc = {"kind": "transaction", "found": result is not None, "result": result}
         else:
-            result = rpc_call(client, url, "getAccountInfo", [ref.attrs["address"], {"encoding": "base64", "commitment": "finalized"}])
-            doc = {"kind": "account", "found": (result or {}).get("value") is not None, "result": result}
-            try:
-                doc["history"] = solana_history(rpc_call, client, url, ref.attrs["address"], ctx.settings.onchain_history_limit)
-            except ProviderError as exc:
-                doc["history_error"] = str(exc)
+            cursor = data.payload.get("cursor") if data.payload else None
+            if cursor is not None:  # "load more": signatures older than the last one already shown; no account re-read
+                doc = {"kind": "account", "found": True, "result": None, "page": True, "cursor": cursor}
+                doc["history"] = solana_history(rpc_call, client, url, ref.attrs["address"], ctx.settings.onchain_history_limit, str((cursor or {}).get("before", "")))
+            else:
+                result = rpc_call(client, url, "getAccountInfo", [ref.attrs["address"], {"encoding": "base64", "commitment": "finalized"}])
+                doc = {"kind": "account", "found": (result or {}).get("value") is not None, "result": result}
+                try:
+                    doc["history"] = solana_history(rpc_call, client, url, ref.attrs["address"], ctx.settings.onchain_history_limit)
+                except ProviderError as exc:
+                    doc["history_error"] = str(exc)
         return RawResult(raw=json.dumps(doc, sort_keys=True).encode(), parsed=doc, log=f"found={doc['found']}", parameters={"commitment": "finalized"})
 
     def normalize_result(self, raw: RawResult, data: ProviderInput, ctx: ProviderContext) -> list[NormalizedObservation]:
@@ -311,11 +332,15 @@ class SolanaRpcProvider(IntelligenceProvider):
                        "owner_program": (value or {}).get("owner"), "note": "on-chain account facts only; no ownership by any person/account is implied"}
             if doc.get("history"):
                 payload.update({"network": "solana", "recent_transactions": doc["history"]["recent_transactions"],
-                                "counterparties": doc["history"]["counterparties"], "history_truncated": doc["history"]["history_truncated"]})
+                                "counterparties": doc["history"]["counterparties"], "history_truncated": doc["history"]["history_truncated"],
+                                "next_cursor": doc["history"].get("next_cursor")})
+            if doc.get("page"):
+                payload = {k: v for k, v in payload.items() if k not in ("lamports", "executable", "owner_program")}
+                payload["found"], payload["page"] = True, True
             if doc.get("history_error"):
                 payload["history_error"] = doc["history_error"]
             return [NormalizedObservation(
-                source=SourceRef(SourceType.BLOCKCHAIN_ADDRESS.value, ref.canonical_id, None, ref.canonical_id, ref.display_name, "rpc"),
+                source=SourceRef(SourceType.BLOCKCHAIN_ADDRESS.value, page_source_key(ref, doc.get("cursor")), None, ref.canonical_id, ref.display_name, "rpc"),
                 subject=ref, observation_type=ObservationType.BLOCKCHAIN_ADDRESS.value, observed_at=now, payload=payload, external_id=ref.canonical_id,
             )]
         src = SourceRef(SourceType.BLOCKCHAIN_TRANSACTION.value, ref.canonical_id, None, ref.canonical_id, ref.display_name, "rpc")
