@@ -8,6 +8,48 @@ Honest inventory. "Verified" means a command was actually run and its result obs
 
 Ariadna is a persistent OSINT intelligence and knowledge-graph platform for crypto analysis (hackathon project for KAS / Ministry of Finance). An analyst starts from a name, a login, a URL, an address or a transaction hash. The system collects observations through replaceable providers, stores them append-only with raw artifacts, and derives relationship status only from evidence (there is no confidence score). A wallet mention on a page is never treated as ownership. LLM output is stored as an unverified claim. The backend (FastAPI + SQLAlchemy + Alembic) and the Polish-language web UI (Next.js) are built and covered by automated tests; end-to-end runs against real external services are mostly unverified (see below).
 
+## Co można robić w aplikacji (po stronach)
+
+Opis oparty na kodzie stron frontendu i endpointach API. Interfejs jest po polsku. Wartości statusów w API zostają po angielsku (`verified`, `proposed`), a tłumaczone są tylko etykiety.
+
+**Role.** Obserwator tylko czyta. Analityk uruchamia wyszukiwania, pobieranie stron, śledzenie, automatyzację, zadania rozpoznania i importy, przegląda relacje, twierdzenia i kandydatów do połączenia oraz pobiera artefakty. Administrator dodatkowo zarządza dostawcami i politykami oraz czyta dziennik audytu. Logowanie: login i hasło, token JWT.
+
+**Przegląd.** Sumy encji, źródeł, obserwacji i relacji. Nowe elementy z ostatnich 24 godzin. Lista „Wymaga uwagi" z linkami: zadania do zatwierdzenia, kandydaci do połączenia, twierdzenia modelu, relacje sprzeczne, źródła nieaktualne lub niedostępne, zadania martwe. Encje według typu, relacje według statusu dowodowego, ostatnie uruchomienia dostawców.
+
+**Wyszukiwanie tropów** (przepływ ręczny, każdy krok zatwierdza analityk):
+1. Podanie osoby lub tematu. System proponuje zapytania deterministycznie (bez AI). Zapytania można edytować, a sesję rozpoczyna się jawnie.
+2. „Zatwierdź i szukaj": Tavily (oficjalne API) albo ddgs (nieoficjalny, w szarej strefie regulaminów). Przejście na zapas jest zawsze zgłaszane. Wyniki to tropy, nie fakty. Można wrócić do wcześniejszych wyszukiwań sesji.
+3. „Pobierz stronę" z wyników albo z ręcznie wklejonego adresu. Respektowane są `robots.txt` i ochrona SSRF, jest limit rozmiaru, a X, Telegram, Instagram, Facebook, TikTok i LinkedIn nigdy nie są pobierane. Treść strony nie jest zapisywana. Z strony wyciągani są kandydaci na adresy Solana, EVM i Bitcoin z krótkim kontekstem (bez e-maili i telefonów). Przy kandydacie widać powtarzalność wzmianki słowami. „Śledź adres" wymaga uzasadnienia (min. 10 znaków, trafia do audytu) i tworzy tylko relację „wzmianka na stronie".
+4. „Sprawdź w blockchainie": saldo, liczba transakcji, ostatnie transakcje, kontrahenci. Dostępne są „Odśwież", „Wczytaj więcej" (kolejna strona historii jako osobne audytowane uruchomienie) oraz wybór do 20 kontrahentów. „Dodaj zaznaczone jako powiązane portfele" tworzy `WALLET_TRANSACTED_WITH`, czyli fakt transakcyjny, a nie własność.
+5. Lista relacji utworzonych w sesji i link do grafu.
+
+Wskaźnik powtarzalności w tej stronie pojawia się tylko wtedy, gdy fraza z kroku 1 (pełne imię i nazwisko) występuje obok adresu na pobranej stronie. W ręcznym przepływie login nie jest używany, tylko w Automatyzacji. Poziomy (słowami): bardzo niska od 1 strony, niska od 3, umiarkowana od 5, wysoka od 8, bardzo wysoka od 13, niemal pewna od 20 różnych stron. Backend zwraca je po angielsku (`very low`, `low`, `moderate`, `high`, `very high`, `almost certain repeatability`).
+
+**Automatyzacja.** To samo w tle, etapami A–E, każdy włączany osobno: A Sherlock (login do adresów profili, tylko zgodność ciągu znaków), B wyszukiwanie, pobranie stron i kandydaci na adresy, C śledzenie adresów z imieniem i nazwiskiem lub loginem w kontekście ±120 znaków (wymaga B), D sprawdzenie portfeli w blockchainie (wymaga C), E rozwinięcie o jeden krok do 20 kontrahentów (wymaga D). Twarde limity: zapytania (domyślnie 6, maks. 20), strony (15, maks. 50), adresy (30, maks. 100), czas (600 s, maks. 1800 s). Strona pokazuje dziennik każdego kroku, powód zatrzymania, tabelę kandydatów i listę uruchomień. Uruchomienie można przerwać. Worker prowadzi je dalej po odświeżeniu strony i restarcie.
+
+**Rozpoznanie.** Nowa sprawa z imienia i nazwiska, loginu lub elementu początkowego (URL, @uchwyt, adres portfela, hash transakcji, domena), wystarczy jedno z nich. Kolejka zadań z filtrem statusu. Zatwierdzanie lub odrzucanie zadań wrażliwych. Przycisk „Wykonaj zadania do uruchomienia" wykonuje do 25 zadań. Martwe zadania można ponowić.
+
+**Graf wiedzy.** Wyszukiwanie encji, filtr statusów relacji, rozwijanie sąsiadów dwuklikiem (portfel bez zapisanych danych on-chain dostaje zapytanie, jeden krok, bez duplikatów). Kliknięcie krawędzi otwiera dowody. Panel węzła ma linki do strony źródłowej i do zewnętrznych eksploratorów (Blockscout, Blockstream, Solana Explorer), które służą do własnej weryfikacji i nie są dowodem. Najkrótsza ścieżka między dwoma węzłami, czyszczenie widoku, legenda statusów. Widok jest ograniczony rozmiarem i ostrzega, gdy jest skrócony.
+
+**Encje.** Lista z wyszukiwaniem i filtrem typu (12 typów). Profil ma zakładki: przegląd, relacje, obserwacje, źródła, twierdzenia, oś czasu. Pokazuje zdarzenia zweryfikowane w blockchainie, aliasy, sprzeczności i oczekujące dopasowania. Podobne nazwy nigdy nie są łączone automatycznie.
+
+**Źródła.** Lista z wyszukiwaniem i filtrem statusu oraz osobna lista źródeł nieaktualnych.
+
+**Sprawy.** Lista spraw i szczegóły: ponowne wykorzystanie wiedzy (co było znane, co nowe), notatki, eksport JSON, import rekordów dostarczonych przez analityka (wymaga podstawy uprawnienia, rekordy są zapisywane jako niezweryfikowane).
+
+**Centrum dowodów.** Każde uruchomienie dostawcy z filtrem dostawcy i statusu. Surowy artefakt jest pobierany przez analityka, nigdy wyświetlany.
+
+**Baza wiedzy** (5 zakładek). Obserwacje z wyszukiwaniem. Relacje (akceptacja lub odrzucenie przeglądu). Twierdzenia modelu językowego (akceptacja zapisuje tylko przegląd, nie weryfikuje faktu i nie tworzy relacji). Kandydaci do połączenia encji. Zapisane połączenia z możliwością cofnięcia.
+
+**Dostawcy danych.** Lista z opisem, kategorią i klasą dowodu. Analityk sprawdza stan, administrator włącza i wyłącza dostawców. Widoczne są limity zapytań. Zaślepki (`maigret`, `spiderfoot`, `maltego`) nie dają się włączyć.
+
+**Ustawienia.** Polityki zbierania (kategoria, domena lub dostawca: zezwól, wymagaj zatwierdzenia, zabroń), dodaje i usuwa je administrator. Wiki projektu: lista stron, synchronizacja z dysku, kontrola spójności. Dziennik audytu (administrator). Konfiguracja uruchomieniowa bez sekretów.
+
+**Tylko w API, bez przycisku w interfejsie** (frontend ich nie wywołuje): usuwanie encji i źródeł oraz poprawianie źródeł, wyciąganie twierdzeń z obserwacji i streszczenie encji przez model językowy, zapisane widoki sprawy, lista zmian od wskazanej daty.
+
+**Dwie zasady, które warto powiedzieć głośno.** W produkcie nie ma liczbowej „pewności": status relacji wynika wyłącznie z dowodów, a powtarzalność wzmianki jest podawana słowami i niczego nie zmienia w statusie. Wzmianka o adresie na stronie nigdy nie oznacza własności.
+
+
 ## Verified by running
 
 | Area | Evidence |
